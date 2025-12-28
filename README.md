@@ -2,7 +2,7 @@
 
 > 基于 prompt-toolkit + Pydantic 构建的可扩展命令行界面框架
 
-[![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Types: mypy](https://img.shields.io/badge/types-mypy-blue.svg)](https://mypy-lang.org/)
 
@@ -165,9 +165,13 @@ from ptk_repl.core.base import CommandModule
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ptk_repl.core.cli import PromptToolkitCLI
+    from ptk_repl.cli import PromptToolkitCLI
 
 class MyModule(CommandModule):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cli: "PromptToolkitCLI | None" = None
+
     @property
     def name(self) -> str:
         return "mymodule"
@@ -182,13 +186,12 @@ class MyModule(CommandModule):
 
     def register_commands(self, cli: "PromptToolkitCLI") -> None:
         """注册模块命令"""
+        self.cli = cli
 
-        def do_hello(self, args: list[str]) -> None:
+        @cli.command()
+        def do_hello(args: list[str]) -> None:
             """打招呼命令"""
-            print("Hello from mymodule!")
-
-        # 注册命令
-        cli.register_command("mymodule", "hello", do_hello)
+            cli.poutput("Hello from mymodule!")
 ```
 
 3. **创建 `__init__.py`**
@@ -275,6 +278,7 @@ def do_create(self, args: CreateUserArgs) -> None:
 
 ```
 src/ptk_repl/
+├── cli.py                  # CLI 入口和主控制器
 ├── core/                   # 核心框架
 │   ├── base.py            # CommandModule 基类
 │   ├── registry.py        # 命令注册表
@@ -282,8 +286,7 @@ src/ptk_repl/
 │   ├── config_manager.py  # 配置管理器
 │   ├── decorators.py      # 命令装饰器
 │   ├── completer.py       # 自动补全器
-│   ├── help_formatter.py  # 帮助格式化
-│   └── cli.py             # PromptToolkitCLI 主类
+│   └── help_formatter.py  # 帮助格式化
 │
 ├── state/                  # 状态定义
 │   ├── global_state.py    # 全局状态
@@ -334,7 +337,7 @@ uv run lint
 ```bash
 # PyInstaller 打包
 pip install pyinstaller
-uv run pyinstaller src/ptk_repl/cli.py \
+uv run pyinstaller src/ptk_repl/__main__.py \
   --name ptk_repl \
   --onefile \
   --console \
@@ -345,13 +348,24 @@ uv run pyinstaller src/ptk_repl/cli.py \
 
 完整文档请查看 [docs/](docs/) 目录。
 
-### 📚 重要文档
-- [更新日志](CHANGELOG.md) - 版本变更记录
-- [贡献指南](CONTRIBUTING.md) - 如何贡献代码
+### 📚 文档中心
+**[📚 查看所有文档](docs/README.md)** - 文档导航和快速索引
+
+### 🏗️ 设计文档
+- [架构设计](docs/design/architecture.md) - 系统架构和核心组件设计
+
+### 💻 开发文档
+- [开发指南](docs/development/development.md) - 开发环境搭建和代码规范
+- [模块开发教程](docs/guides/module-development.md) - 如何创建自定义模块
+- [API 参考](docs/implementation/api-reference.md) - 核心 API 完整参考
+
+### 📖 使用指南
 - [配置文件说明](docs/ptk_repl-config.md) - ptk_repl 配置详解
 - [PyInstaller 打包指南](docs/ptk_repl-pyinstaller.md) - 如何打包可执行文件
 
-**[📚 查看所有文档](docs/README.md)**
+### 📋 项目信息
+- [更新日志](CHANGELOG.md) - 版本变更记录
+- [贡献指南](CONTRIBUTING.md) - 如何贡献代码
 
 ## 🤝 贡献
 

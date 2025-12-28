@@ -11,13 +11,13 @@
 - [配置文件说明](ptk_repl-config.md) - ptk_repl 配置文件详解
 - [PyInstaller 打包指南](ptk_repl-pyinstaller.md) - 如何打包可执行文件
 
-### 📋 项目信息
-- [更新日志](../CHANGELOG.md) - 版本变更记录
-- [贡献指南](../CONTRIBUTING.md) - 如何贡献代码
-- [后续工作清单](todo.md) - 计划中的功能和改进
+### 🏗️ 设计文档
+- [架构设计](design/architecture.md) - 系统架构和核心组件设计
 
-### 📦 归档文档
-- [MyREPL 归档文档](../archive/myrepl/docs/README.md) - 早期版本（基于 cmd2）的文档
+### 💻 开发文档
+- [开发指南](development/development.md) - 开发环境搭建和代码规范
+- [模块开发教程](guides/module-development.md) - 如何创建自定义模块
+- [API 参考](implementation/api-reference.md) - 核心 API 完整参考
 
 ## 🔍 快速导航
 
@@ -26,8 +26,20 @@
 **了解项目概况**
 → [主 README](../README.md)
 
+**了解系统架构**
+→ [架构设计](design/architecture.md)
+
 **配置项目**
 → [配置文件说明](ptk_repl-config.md)
+
+**开发新模块**
+→ [模块开发教程](guides/module-development.md)
+
+**查看 API 文档**
+→ [API 参考](implementation/api-reference.md)
+
+**了解代码规范**
+→ [开发指南](development/development.md)
 
 **打包可执行文件**
 → [PyInstaller 打包指南](ptk_repl-pyinstaller.md)
