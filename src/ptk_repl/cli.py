@@ -1,6 +1,5 @@
 """基于 prompt_toolkit 的模块化 CLI 主类。"""
 
-import shlex
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,8 +8,13 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import NestedCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
-from prompt_toolkit.styles import Style
 
+from ptk_repl.core.cli import (
+    CommandExecutor,
+    ModuleLoader,
+    PromptManager,
+    StyleManager,
+)
 from ptk_repl.core.completer import AutoCompleter
 from ptk_repl.core.config_manager import ConfigManager
 from ptk_repl.core.registry import CommandRegistry
@@ -40,9 +44,12 @@ class PromptToolkitCLI:
 
         # PromptSession 配置
         self.history_path = history_path or Path.home() / ".ptk_repl_history"
+        self._style_manager = StyleManager()
+        self._prompt_manager = PromptManager(self.state)
+
         self.session: PromptSession[str] = PromptSession(
             history=FileHistory(str(self.history_path)),
-            style=self._create_style(),
+            style=self._style_manager.create_style(),
             completer=NestedCompleter.from_nested_dict({}),  # 初始为空
             enable_history_search=False,  # 禁用历史搜索（与实时补全冲突）
             complete_while_typing=True,  # 实时补全
@@ -55,183 +62,29 @@ class PromptToolkitCLI:
         self.registry.set_completer(self.auto_completer)
         self.session.completer = self.auto_completer.to_prompt_toolkit_completer()
 
-        # 懒加载支持
-        self._lazy_modules: dict[str, type] = {}
-        self._loaded_modules: set[str] = set()
+        # 初始化模块加载器
+        self._module_loader = ModuleLoader(
+            registry=self.registry,
+            state_manager=self.state,
+            config=self.config,
+            auto_completer=self.auto_completer,
+            register_commands_callback=self.register_module_commands,
+            error_callback=self.perror,
+        )
+
+        # 初始化命令执行器
+        self._command_executor = CommandExecutor(
+            registry=self.registry,
+            module_loader=self._module_loader,
+            output_callback=self.poutput,
+            error_callback=self.perror,
+        )
 
         # 命令注册上下文
         self._current_module: str | None = None
 
         # 加载核心模块
-        self._load_modules()
-        self._update_completer()
-
-    def _create_style(self) -> Style:
-        """创建 CLI 样式。
-
-        Returns:
-            Style 对象
-        """
-        return Style.from_dict(
-            {
-                "prompt": "ansigreen bold",
-                # 补全菜单样式
-                "completion-menu.completion": "bg:#008888 #ffffff",
-                "completion-menu.completion.current": "bg:#00aaaa #000000",
-                # 滚动条样式（增强视觉效果）
-                "scrollbar.background": "bg:#88aaaa",
-                "scrollbar.button": "bg:#222222",
-                "scrollbar.arrow": "bg:#00aaaa #000000",
-            }
-        )
-
-    def _get_prompt(self) -> str:
-        """动态生成提示符。
-
-        Returns:
-            提示符字符串
-        """
-        gs = self.state.global_state
-        if gs.connected:
-            if gs.connection_type == "ssh" and gs.current_ssh_env:
-                # SSH 连接：显示环境名称
-                return f"(ptk:{gs.current_ssh_env}) > "
-            elif gs.connection_type == "database" and gs.current_host:
-                # Database 连接：显示主机和端口
-                return f"(ptk:{gs.current_host}:{gs.current_port}) > "
-            elif gs.current_host:
-                # 兼容旧版本：显示主机和端口
-                return f"(ptk:{gs.current_host}:{gs.current_port}) > "
-        return "(ptk) > "
-
-    def _load_modules(self) -> None:
-        """加载模块（core 立即加载，其他根据配置预加载或懒加载）。"""
-        # 1. 自动发现所有可用模块并注册到懒加载系统
-        self._discover_all_modules()
-
-        # 2. Core 模块总是立即加载
-        self._load_module_immediately("core")
-
-        # 3. 从配置获取预加载模块列表
-        preload_modules = self.config.get("core.preload_modules", [])
-
-        # 4. 预加载配置中指定的模块
-        for module_name in preload_modules:
-            if module_name != "core" and module_name not in self._loaded_modules:
-                self._load_module_immediately(module_name)
-
-    def _discover_all_modules(self) -> None:
-        """自动发现所有可用模块并注册到懒加载系统。"""
-        import importlib
-        import pkgutil
-
-        try:
-            # 导入 modules 包
-            modules_package = importlib.import_module("ptk_repl.modules")
-
-            # 遍历 modules 包中的所有模块
-            for _, module_name, _ in pkgutil.iter_modules(modules_package.__path__):
-                # 跳过 core 模块（它会被立即加载）
-                if module_name == "core":
-                    continue
-
-                # 跳过已经在懒加载列表中的模块
-                if module_name in self._lazy_modules:
-                    continue
-
-                # 预加载模块（添加到 _lazy_modules）
-                self._preload_module(module_name)
-        except Exception as e:
-            self.perror(f"发现模块失败: {e}")
-
-    def _load_module_immediately(self, module_name: str) -> None:
-        """立即加载模块。
-
-        Args:
-            module_name: 模块名称
-        """
-        if module_name == "core":
-            from ptk_repl.modules.core.module import CoreModule
-
-            module = CoreModule()
-            self.registry.register_module(module)
-            module.initialize(self.state)
-            self.register_module_commands(module)
-            self._loaded_modules.add(module_name)
-        else:
-            # 加载其他模块
-            # 如果模块已经在 _lazy_modules 中，直接使用
-            if module_name in self._lazy_modules:
-                module_cls = self._lazy_modules[module_name]
-                module = module_cls()
-                self.registry.register_module(module)
-                module.initialize(self.state)
-                self.register_module_commands(module)
-                self._loaded_modules.add(module_name)
-                del self._lazy_modules[module_name]
-            else:
-                # 否则，先导入模块再加载
-                import importlib
-
-                try:
-                    module_path = f"ptk_repl.modules.{module_name}"
-                    mod = importlib.import_module(module_path)
-
-                    # 特殊模块名称映射（处理缩写词）
-                    special_casing = {"ssh": "SSH"}
-                    class_name_prefix = special_casing.get(module_name, module_name.capitalize())
-                    module_cls = getattr(mod, f"{class_name_prefix}Module")
-                    module = module_cls()
-                    self.registry.register_module(module)
-                    module.initialize(self.state)
-                    self.register_module_commands(module)
-                    self._loaded_modules.add(module_name)
-                except Exception as e:
-                    self.perror(f"加载��块 '{module_name}' 失败: {e}")
-
-    def _preload_module(self, module_name: str) -> None:
-        """预加载模块（懒加载）。
-
-        Args:
-            module_name: 模块名称
-        """
-        import importlib
-
-        try:
-            module_path = f"ptk_repl.modules.{module_name}"
-            mod = importlib.import_module(module_path)
-
-            # 特殊模块名称映射（处理缩写词）
-            special_casing = {"ssh": "SSH"}
-            class_name_prefix = special_casing.get(module_name, module_name.capitalize())
-            module_cls = getattr(mod, f"{class_name_prefix}Module")
-
-            self._lazy_modules[module_name] = module_cls
-        except Exception as e:
-            self.perror(f"预加载模块 '{module_name}' 失败: {e}")
-
-    def _update_completer(self) -> None:
-        """更新补全器（动态）。"""
-        self.auto_completer._invalidate_cache()
-
-    def _ensure_module_loaded(self, module_name: str) -> None:
-        """确保模块已加载。
-
-        Args:
-            module_name: 模块名称
-        """
-        if module_name in self._loaded_modules:
-            return
-
-        if module_name in self._lazy_modules:
-            module_cls = self._lazy_modules[module_name]
-            module = module_cls()
-            self.registry.register_module(module)
-            module.initialize(self.state)
-            self.register_module_commands(module)
-            self._loaded_modules.add(module_name)
-            del self._lazy_modules[module_name]
-            self._update_completer()
+        self._module_loader.load_modules()
 
     def run(self) -> None:
         """运行 REPL 主循环。"""
@@ -239,7 +92,7 @@ class PromptToolkitCLI:
 
         while True:
             try:
-                user_input = self.session.prompt(self._get_prompt())
+                user_input = self.session.prompt(self._prompt_manager.get_prompt())
                 if not user_input.strip():
                     continue
 
@@ -255,85 +108,12 @@ class PromptToolkitCLI:
                 self.perror(f"错误: {e}")
 
     def _execute_command(self, command_str: str) -> None:
-        """执行命令。
+        """执行命令（委托给 CommandExecutor）。
 
         Args:
             command_str: 命令字符串
         """
-        tokens = shlex.split(command_str)
-        if not tokens:
-            return
-
-        # 解析命令
-        cmd_info = self.registry.get_command_info(command_str)
-        if cmd_info:
-            module_name, command_name, handler = cmd_info
-
-            # 懒加载检查
-            if module_name not in self._loaded_modules:
-                self._ensure_module_loaded(module_name)
-
-            # 计算参数部分
-            if module_name == "core":
-                # core 命令: status -> tokens[0]
-                # 参数: tokens[1:]
-                remaining = " ".join(tokens[1:]) if len(tokens) > 1 else ""
-            else:
-                # 模块命令: database query -> tokens[0:2]
-                # 参数: tokens[2:]
-                remaining = " ".join(tokens[2:]) if len(tokens) > 2 else ""
-
-            # 调用处理器
-            if getattr(handler, "_is_typed_wrapper", False):
-                # typed_command 处理
-                handler(self, remaining)  # 传递 (cli, args_str)
-            else:
-                # 普通命令处理
-                handler(remaining)
-        else:
-            # 检查是否是模块名/别名
-            if len(tokens) == 1:
-                # 1. 尝试从已加载模块的注册表查找
-                module = self.registry.get_module(tokens[0])
-                if module:
-                    # 触发懒加载并显示帮助（虽然已经在 registry 中）
-                    if module.name not in self._loaded_modules:
-                        self._ensure_module_loaded(module.name)
-
-                    commands = self.registry.list_module_commands(module.name)
-                    self.poutput(f"{module.name} 模块 - {module.description}")
-                    self.poutput("\n可用命令:")
-                    for cmd in commands:
-                        if module.name == "core":
-                            full_cmd = cmd
-                        else:
-                            full_cmd = f"{module.name} {cmd}"
-                        self.poutput(f"  • {full_cmd}")
-                    return
-
-                # 2. 尝试从懒加载模块中查找（通过别名）
-                for module_name, module_cls in self._lazy_modules.items():
-                    # 创建临时模块实例来检查别名
-                    temp_module = module_cls()
-                    if hasattr(temp_module, "aliases") and tokens[0] in temp_module.aliases:
-                        # 找到了！触发懒加载
-                        self._ensure_module_loaded(module_name)
-
-                        # 重新从 registry 获取模块（现在已加载）
-                        module = self.registry.get_module(module_name)
-                        if module:
-                            commands = self.registry.list_module_commands(module_name)
-                            self.poutput(f"{module.name} 模块 - {module.description}")
-                            self.poutput("\n可用命令:")
-                            for cmd in commands:
-                                if module_name == "core":
-                                    full_cmd = cmd
-                                else:
-                                    full_cmd = f"{module_name} {cmd}"
-                                self.poutput(f"  • {full_cmd}")
-                        return
-
-            self.perror(f"未知命令: {tokens[0]}")
+        self._command_executor.execute(command_str)
 
     def register_command(
         self,
@@ -351,7 +131,7 @@ class PromptToolkitCLI:
             aliases: 命令别名列表（可选）
         """
         self.registry.register_command(module_name, command_name, handler, aliases)
-        self._update_completer()
+        self.auto_completer._invalidate_cache()
 
     def command(
         self,
