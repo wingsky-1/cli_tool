@@ -33,6 +33,16 @@ class SSHConnectionInfo(BaseModel):
         """
         self._client = client
 
+    def close(self) -> None:
+        """关闭 SSH 连接。"""
+        if self._client:
+            try:
+                self._client.close()
+            except Exception:
+                pass  # 忽略关闭时的错误
+            self._client = None
+        self.is_active = False
+
 
 class SSHState(ModuleState):
     """SSH 模块状态。
@@ -94,3 +104,10 @@ class SSHState(ModuleState):
         self.connections.clear()
         self.active_environments.clear()
         self.connection_history.clear()
+
+    def close_all_connections(self) -> None:
+        """关闭所有 SSH 连接。"""
+        for conn_info in list(self.connections.values()):
+            conn_info.close()
+        self.connections.clear()
+        self.active_environments.clear()

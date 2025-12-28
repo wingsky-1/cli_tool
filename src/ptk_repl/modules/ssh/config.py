@@ -1,8 +1,12 @@
 """SSH 配置模型。"""
 
-from typing import Any, Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from ptk_repl.core.config_manager import ConfigManager
 
 
 class LogConfig(BaseModel):
@@ -60,7 +64,7 @@ class SSHModuleConfig(BaseModel):
     log_paths: dict[str, list[LogConfig]] = Field(default_factory=dict)
 
 
-def load_ssh_config(config_manager: Any) -> SSHModuleConfig:
+def load_ssh_config(config_manager: "ConfigManager | Any") -> SSHModuleConfig:
     """从配置管理器加载 SSH 配置。
 
     Args:
@@ -77,16 +81,19 @@ def load_ssh_config(config_manager: Any) -> SSHModuleConfig:
     # 解析环境列表
     environments = [SSHEnvironment(**env) for env in ssh_config_dict.get("environments", [])]
 
+    # 日志配置解析器映射
+    log_parsers: dict[str, Callable[[list[dict[str, Any]]], list[LogConfig]]] = {
+        "direct": lambda cfgs: [DirectLogConfig(**cfg) for cfg in cfgs],
+        "k8s": lambda cfgs: [K8sLogConfig(**cfg) for cfg in cfgs],
+        "docker": lambda cfgs: [DockerLogConfig(**cfg) for cfg in cfgs],
+    }
+
     # 解析全局日志配置
     log_paths: dict[str, list[LogConfig]] = {}
     raw_log_paths = ssh_config_dict.get("log_paths", {})
 
     for mode, configs in raw_log_paths.items():
-        if mode == "direct":
-            log_paths[mode] = [DirectLogConfig(**cfg) for cfg in configs]
-        elif mode == "k8s":
-            log_paths[mode] = [K8sLogConfig(**cfg) for cfg in configs]
-        elif mode == "docker":
-            log_paths[mode] = [DockerLogConfig(**cfg) for cfg in configs]
+        if mode in log_parsers:
+            log_paths[mode] = log_parsers[mode](configs)
 
     return SSHModuleConfig(environments=environments, log_paths=log_paths)

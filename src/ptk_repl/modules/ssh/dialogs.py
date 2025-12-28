@@ -1,13 +1,20 @@
 """交互式对话框 - 使用 questionary 实现。"""
 
 import re
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
 
 import questionary
 from questionary import Choice
 
+if TYPE_CHECKING:
+    from ptk_repl.modules.ssh.config import LogConfig, SSHModuleConfig
+    from ptk_repl.modules.ssh.state import SSHState
+    from ptk_repl.state.global_state import GlobalState
 
-def select_environment_dialog(config: Any, state: Any, global_state: Any) -> str | None:
+
+def select_environment_dialog(
+    config: "SSHModuleConfig", state: "SSHState", global_state: "GlobalState"
+) -> str | None:
     """选择 SSH 环境（带搜索功能）。
 
     Args:
@@ -58,7 +65,7 @@ def select_environment_dialog(config: Any, state: Any, global_state: Any) -> str
     return cast(str | None, result)
 
 
-def select_log_dialog(log_configs: list[Any], mode: str) -> Any | None:
+def select_log_dialog(log_configs: list["LogConfig"], mode: str) -> "LogConfig | None":
     """选择日志文件（带搜索功能）。
 
     Args:
@@ -82,12 +89,20 @@ def select_log_dialog(log_configs: list[Any], mode: str) -> Any | None:
     for cfg in log_configs:
         # 显示日志名称和描述
         display_text = cfg.name
-        if mode == "direct":
-            display_text += f" ({cfg.path})"
-        elif mode == "docker":
-            display_text += f" (容器: {cfg.container_name})"
-        elif mode == "k8s":
-            display_text += f" (Pod: {cfg.pod})"
+
+        # 使用 getattr 安全访问可选属性
+        if cfg.log_type == "direct":
+            path = getattr(cfg, "path", None)
+            if path:
+                display_text += f" ({path})"
+        elif cfg.log_type == "docker":
+            container_name = getattr(cfg, "container_name", None)
+            if container_name:
+                display_text += f" (容器: {container_name})"
+        elif cfg.log_type == "k8s":
+            pod = getattr(cfg, "pod", None)
+            if pod:
+                display_text += f" (Pod: {pod})"
 
         choices.append(
             Choice(
@@ -101,7 +116,7 @@ def select_log_dialog(log_configs: list[Any], mode: str) -> Any | None:
         choices=choices,
     ).ask()
 
-    return cast(Any | None, result)
+    return cast("LogConfig | None", result)
 
 
 def select_container_dialog(containers: list[str], container_type: str = "容器") -> str | None:

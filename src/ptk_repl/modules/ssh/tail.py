@@ -59,7 +59,7 @@ def _get_k8s_pods(client: paramiko.SSHClient, namespace: str | None = None) -> l
     """获取所有 K8s Pod 名称。
 
     Args:
-        client: SSH 客户端
+        client: SSH 客户��
         namespace: 命名空间（可选）
 
     Returns:
@@ -74,14 +74,13 @@ def _get_k8s_pods(client: paramiko.SSHClient, namespace: str | None = None) -> l
     return [pod.strip() for pod in output.split() if pod.strip()]
 
 
-def _tail_direct_log(client: paramiko.SSHClient, log_config: Any) -> None:
-    """查看直接日志文件。
+def _execute_with_channel(client: paramiko.SSHClient, command: str) -> None:
+    """通过 channel 执行命令并实时输出。
 
     Args:
         client: SSH 客户端
-        log_config: 直接日志配置
+        command: 要执行的命令
     """
-    command = f"tail -f {log_config.path}"
     channel = client.invoke_shell()
     channel.send((command + "\n").encode("utf-8"))
 
@@ -93,6 +92,17 @@ def _tail_direct_log(client: paramiko.SSHClient, log_config: Any) -> None:
             time.sleep(0.1)
     except KeyboardInterrupt:
         channel.close()
+
+
+def _tail_direct_log(client: paramiko.SSHClient, log_config: Any) -> None:
+    """查看直接日志文件。
+
+    Args:
+        client: SSH 客户端
+        log_config: 直接日志配置
+    """
+    command = f"tail -f {log_config.path}"
+    _execute_with_channel(client, command)
 
 
 def _tail_k8s_log(client: paramiko.SSHClient, log_config: Any) -> None:
@@ -139,17 +149,7 @@ def _tail_k8s_log(client: paramiko.SSHClient, log_config: Any) -> None:
             cmd_parts.extend(["-c", log_config.container])
 
     command = " ".join(cmd_parts)
-    channel = client.invoke_shell()
-    channel.send((command + "\n").encode("utf-8"))
-
-    try:
-        while True:
-            if channel.recv_ready():
-                output = channel.recv(1024).decode("utf-8")
-                print(output, end="", flush=True)
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        channel.close()
+    _execute_with_channel(client, command)
 
 
 def _tail_docker_log(client: paramiko.SSHClient, log_config: Any) -> None:
@@ -182,14 +182,4 @@ def _tail_docker_log(client: paramiko.SSHClient, log_config: Any) -> None:
         # 查看容器默认日志
         command = f"docker logs -f {selected_container}"
 
-    channel = client.invoke_shell()
-    channel.send((command + "\n").encode("utf-8"))
-
-    try:
-        while True:
-            if channel.recv_ready():
-                output = channel.recv(1024).decode("utf-8")
-                print(output, end="", flush=True)
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        channel.close()
+    _execute_with_channel(client, command)

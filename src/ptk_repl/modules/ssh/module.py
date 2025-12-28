@@ -1,9 +1,15 @@
 """SSH 模块主类。"""
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
 
 from ptk_repl.core.base import CommandModule
 from ptk_repl.core.decorators import typed_command
+
+if TYPE_CHECKING:
+    from ptk_repl.cli import PromptToolkitCLI
+    from ptk_repl.core.state_manager import StateManager
 
 
 class DisconnectArgs(BaseModel):
@@ -41,7 +47,7 @@ class SSHModule(CommandModule):
         """模块别名列表。"""
         return []
 
-    def initialize(self, state_manager) -> None:
+    def initialize(self, state_manager: "StateManager") -> None:
         """模块初始化。
 
         Args:
@@ -51,7 +57,12 @@ class SSHModule(CommandModule):
 
         self.state = state_manager.get_module_state("ssh", SSHState)
 
-    def register_commands(self, cli) -> None:
+    def shutdown(self) -> None:
+        """模块关闭时的清理工作。"""
+        # 关闭所有SSH连接
+        self.state.close_all_connections()
+
+    def register_commands(self, cli: "PromptToolkitCLI") -> None:
         """注册模块的所有命令。
 
         Args:
@@ -302,7 +313,7 @@ class SSHModule(CommandModule):
                 cli.perror(f"查看日志失败: {e}")
 
 
-def _set_current_environment(cli, env_name: str) -> None:
+def _set_current_environment(cli: "PromptToolkitCLI", env_name: str) -> None:
     """设置当前环境。
 
     Args:
