@@ -334,15 +334,22 @@ uv run lint
 
 ### 构建
 
+项目提供了智能构建脚本，可自动发现所有模块并打包：
+
 ```bash
-# PyInstaller 打包
-pip install pyinstaller
-uv run pyinstaller src/ptk_repl/__main__.py \
-  --name ptk_repl \
-  --onefile \
-  --console \
-  --add-data "ptk_repl_config.yaml:."
+# 使用项目构建脚本（推荐）
+uv run python scripts/build_ptk_repl.py
 ```
+
+该脚本会：
+- 自动扫描 `src/ptk_repl/modules/` 目录下的所有模块
+- 生成完整的 `hidden-import` 列表
+- 处理模块间的依赖关系
+- 打包成单个可执行文件
+
+打包完成后，可执行文件位于 `dist/ptk_repl.exe`（Windows）或 `dist/ptk_repl`（Linux/macOS）。
+
+**详细文档**: [PyInstaller 打包指南](docs/ptk_repl-pyinstaller.md)
 
 ## 📖 文档
 
