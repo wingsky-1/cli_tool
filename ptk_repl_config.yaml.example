@@ -1,0 +1,80 @@
+# PTK REPL 配置文件
+
+# SSH 模块配置
+modules:
+  ssh:
+    # 日志路径全局配置（三种模式的完整定义）
+    log_paths:
+      # 直接日志模式
+      direct:
+        - name: "应用日志"
+          path: "/var/log/app/application.log"
+        - name: "Nginx 访问日志"
+          path: "/var/log/nginx/access.log"
+        - name: "系统日志"
+          path: "/var/log/syslog"
+
+      # Kubernetes 容器日志模式
+      k8s:
+        # 查看容器内日志文件
+        - name: "前端 Nginx 访问日志"
+          namespace: "frontend"
+          pod: "frontend-nginx-*"
+          container: "nginx"
+          path: "/var/log/nginx/access.log"  # 容器内文件路径
+        - name: "后端应用日志"
+          namespace: "backend"
+          pod: "api-server-*"
+          container: "api"
+          path: "/app/logs/application.log"  # 容器内文件路径
+        # 查看容器默认输出（stdout/stderr）
+        - name: "前端服务输出"
+          namespace: "frontend"
+          pod: "frontend-nginx-*"
+          container: "nginx"
+        - name: "后端 API 输出"
+          namespace: "backend"
+          pod: "api-server-*"
+          container: "api"
+
+      # Docker 容器日志模式
+      docker:
+        # 查看容器内日志文件
+        - name: "Redis 慢查询日志"
+          container_name: "redis"
+          path: "/var/log/redis/slowlog.log"  # 容器内文件路径
+        - name: "MySQL 慢查询日志"
+          container_name: "mysql"
+          path: "/var/log/mysql/slow-query.log"  # 容器内文件路径
+        # 查看容器默认输出（stdout/stderr）
+        - name: "Redis 容器输出"
+          container_name: "redis"
+        - name: "MySQL 容器输出"
+          container_name: "mysql"
+
+    # 环境定义（每个环境通过 log_type 字段指定使用的日志模式）
+    environments:
+      - name: prod
+        description: "生产环境服务器"
+        host: "192.168.1.100"
+        port: 22
+        username: "admin"
+        password: "your_password"  # 或使用 key_path
+        # key_path: "/path/to/private_key"
+        log_type: "direct"  # 使用直接日志模式
+
+      - name: staging
+        description: "预发布环境（Kubernetes）"
+        host: "192.168.1.101"
+        port: 22
+        username: "admin"
+        password: "staging_password"
+        log_type: "k8s"  # 使用 Kubernetes 日志模式
+
+      - name: dev
+        description: "开发环境（Docker）"
+        host: "192.168.1.102"
+        port: 22
+        username: "dev"
+        password: "dev_password"
+        log_type: "docker"  # 使用 Docker 日志模式

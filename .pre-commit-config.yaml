@@ -1,0 +1,26 @@
+# Pre-commit configuration
+# See https://pre-commit.com for more information
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
+        language: system
+        files: ^src/
+        types: [python]
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        files: ^src/
+        types: [python]
+
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        files: ^src/
+        types: [python]
