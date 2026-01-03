@@ -1,158 +1,239 @@
-# MyREPL CLI 测试说明
+# PTK_REPL 测试文档
 
-## 快速开始
+本文档描述 PTK_REPL 的测试结构和测试规范。
 
-### 运行完整测试套件
+## 测试结构
+
+```
+tests/
+├── test_connection_context.py    # 连接上下文测试
+├── test_config_provider.py        # 配置提供者测试
+├── test_color_theme.py            # 颜色主题测试
+├── test_error_handling.py          # 错误处理测试
+├── test_iclicontext.py             # ICliContext 接口测试
+├── test_module_name_resolver.py    # 模块名称解析器测试
+└── test_ptk_repl.py                # 核心功能集成测试
+```
+
+## 运行测试
+
+### 运行所有测试
 
 ```bash
-# Windows 用户
-cd c:\Users\唐意\Desktop\Github\cli_tool
-uv run python tests/test_cli_windows.py
+uv run pytest
 ```
 
-### 预期结果
-
-所有测试应该通过：
-```
-============================================================
-总计: 6/6 测试通过
-============================================================
-
-🎉 所有测试通过！CLI 功能完整且正常工作。
-```
-
-## 测试文件说明
-
-### 1. `test_cli_windows.py` - Windows 完整测试
-
-**用途**: 自动化测试所有核心功能
-
-**测试内容**:
-- CLI 启动和欢迎消息
-- 核心命令（status, modules, help）
-- 懒加载机制
-- Database 模块命令
-- 短命令别名（db）
-- 状态管理
-
-**运行时间**: 约 10-15 秒
-
-### 2. `test_cli_full.py` - 通用测试脚本
-
-**用途**: 跨平台测试脚本（需要适当修改）
-
-**注意**: 在 Windows 上可能遇到换行符问题，建议使用 `test_cli_windows.py`
-
-## 手动测试
-
-### 启动 CLI
+### 运行特定测试文件
 
 ```bash
-uv run python -m myrepl.core.cli
+uv run pytest tests/test_ptk_repl.py
+uv run pytest tests/test_connection_context.py
 ```
 
-### 测试命令序列
+### 显示详细输出
 
-```
-# 1. 查看状态
-status
-# 输出: ❌ 未连接
-
-# 2. 查看模块
-modules
-# 输出: 已加载的模块列表和待加载（延迟）列表
-
-# 3. 连接数据库
-database connect localhost --port 8080 --ssl
-# 输出: ✅ 已连接到 localhost:8080
-
-# 4. 查看状态
-status
-# 输出: ✅ 已连接到 localhost:8080
-
-# 5. 查询数据
-database query users --limit 50
-# 输出: 📊 查询表: users
-
-# 6. 使用短命令
-db query users --limit 10
-# 输出: 📊 查询表: users
-
-# 7. 断开连接
-database disconnect
-# 输出: 👋 已断开与 localhost:8080 的连接
-
-# 8. 退出
-exit
-# 输出: 再见! 👋
+```bash
+uv run pytest -v
 ```
 
-## 常见问题
+### 显示覆盖率报告
 
-### Q: 测试失败怎么办？
+```bash
+uv run pytest --cov=ptk_repl
+uv run pytest --cov=ptk_repl --cov-report=html
+```
 
-**A**: 检查以下几点：
-1. 确保在项目根目录运行测试
-2. 确保已安装依赖: `uv sync`
-3. 查看错误信息，确认是否是环境问题
+覆盖率报告将生成在 `htmlcov/index.html`
 
-### Q: 如何调试单个测试？
+## 测试覆盖率目标
 
-**A**: 修改测试脚本，注释掉其他测试，只运行需要调试的测试：
+- **目标覆盖率**: ≥ 90%
+- **当前覆盖率**: 待统计
+
+## 测试规范
+
+### 1. 测试文件命名
+
+- 测试文件名以 `test_` 开头
+- 测试类名以 `Test` 开头
+- 测试方法名以 `test_` 开头
+
+### 2. 使用 pytest
+
+PTK_REPL 使用 pytest 作为测试框架。
+
+**示例**：
+```python
+"""测试连接上下文。"""
+
+from ptk_repl.state.connection_context import SSHConnectionContext
+
+class TestSSHConnectionContext:
+    """SSH 连接上下文测试。"""
+
+    def test_init(self):
+        """测试初始化。"""
+        ctx = SSHConnectionContext("localhost", 22, "user")
+        assert ctx.host == "localhost"
+        assert ctx.port == 22
+
+    def test_get_prompt_suffix(self):
+        """测试获取提示符后缀。"""
+        ctx = SSHConnectionContext("example.com", 22, "user")
+        suffix = ctx.get_prompt_suffix()
+        assert suffix == "@example.com"
+```
+
+### 3. 使用 Fixture
 
 ```python
-# 只测试 database 模块
-def main():
-    test_cli_startup()
-    test_database_module()  # 只运行这个测试
-    # 其他测试...
+import pytest
+from ptk_repl.core.state_manager import StateManager
+from ptk_repl.state.global_state import GlobalState
+
+@pytest.fixture
+def state_manager():
+    """状态管理器 fixture。"""
+    return StateManager()
+
+@pytest.fixture
+def global_state():
+    """全局状态 fixture。"""
+    return GlobalState()
 ```
 
-### Q: help 命令中有多余的命令？
+### 4. 测试 Protocol 接口
 
-**A**: 这是已知的非关键问题。cmd2 的某些内置命令无法完全隐藏，但不影响使用。
+```python
+"""测试 ICliContext 接口。"""
 
-## 测试覆盖率
+from typing import cast
+from ptk_repl.core.interfaces import ICliContext
+from ptk_repl.cli import PromptToolkitCLI
 
-| 功能 | 测试覆盖 | 状态 |
-|------|---------|------|
-| 核心框架 | ✅ 100% | 通过 |
-| 命令系统 | ✅ 100% | 通过 |
-| 模块系统 | ✅ 100% | 通过 |
-| 懒加载 | ✅ 100% | 通过 |
-| 状态管理 | ✅ 100% | 通过 |
-| Database 模块 | ✅ 100% | 通过 |
+class TestICliContext:
+    """ICliContext 接口测试。"""
+
+    def test_duck_typing(self):
+        """测试鸭子类型。"""
+        class MyCLI:
+            def poutput(self, text: str) -> None:
+                print(text)
+
+            def perror(self, text: str) -> None:
+                print(f"Error: {text}", file=sys.stderr)
+
+        # 类型检查
+        cli: ICliContext = MyCLI()  # ✅ 应该通过类型检查
+
+        # 运行时检查
+        assert isinstance(cli, ICliContext)  # ✅ 应该返回 True
+```
+
+### 5. 测试异常
+
+```python
+"""测试错误处理。"""
+
+import pytest
+from ptk_repl.core.exceptions.cli_exceptions import CommandException
+
+class TestCommandException:
+    """CommandException 测试。"""
+
+    def test_command_exception(self):
+        """测试命令异常。"""
+        with pytest.raises(CommandException) as exc_info:
+            raise CommandException("命令执行失败")
+
+        assert str(exc_info.value) == "命令执行失败"
+```
 
 ## 代码质量检查
 
-运行测试前确保通过以下检查：
+### Ruff（Linter & Formatter）
 
 ```bash
-# Ruff 代码检查
-uv run ruff check src/
+# 检查测试代码
+uv run ruff check tests/
 
-# Mypy 类型检查
-uv run mypy src/
+# 自动修复
+uv run ruff check --fix tests/
 
-# 代码格式化
-uv run ruff format src/
+# 格式化测试代码
+uv run ruff format tests/
 ```
 
-## 归档文档
+### Mypy（Type Checker）
 
-详细的测试结果归档请查看: [TEST_RESULTS_ARCHIVE.md](./TEST_RESULTS_ARCHIVE.md)
+```bash
+# 类型检查测试代码
+uv run mypy tests/
+```
 
-## 贡献测试
+## Pre-commit Hooks
 
-欢迎贡献新的测试用例！
+项目使用 pre-commit 自动化代码质量检查：
 
-1. 在 `tests/` 目录下创建新文件
-2. 命名格式: `test_*.py`
-3. 使用现有的测试框架
-4. 运行并确保所有测试通过
-5. 更新文档说明
+```bash
+# 安装 hooks
+uv run pre-commit install
+
+# 手动运行所有检查
+uv run pre-commit run --all-files
+```
+
+## 测试开发工作流
+
+### 1. 创建测试文件
+
+```bash
+touch tests/test_my_feature.py
+```
+
+### 2. 编写测试
+
+```python
+"""测试新功能。"""
+
+import pytest
+from ptk_repl.core.base import CommandModule
+
+class TestMyFeature:
+    """新功能测试。"""
+
+    def test_basic_usage(self):
+        """测试基本用法。"""
+        # 测试代码
+        assert True
+```
+
+### 3. 运行测试
+
+```bash
+uv run pytest tests/test_my_feature.py -v
+```
+
+### 4. 检查覆盖率
+
+```bash
+uv run pytest tests/test_my_feature.py --cov=ptk_repl
+```
+
+### 5. 提交代码
+
+```bash
+git add tests/test_my_feature.py
+git commit -m "test: 添加新功能测试"
+```
+
+## 相关文档
+
+- [开发指南](../docs/development/development.md) - 开发环境搭建和代码规范
+- [架构设计](../docs/design/architecture.md) - 系统架构和核心组件
+- [API 参考](../docs/implementation/api-reference.md) - 核心 API 文档
 
 ---
 
-**最后更新**: 2025-12-27
-**测试状态**: ✅ 全部通过 (6/6)
+**最后更新**: 2026-01-03
+**测试状态**: ✅ 持续改进中
