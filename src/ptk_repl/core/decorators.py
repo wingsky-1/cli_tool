@@ -2,9 +2,12 @@
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ValidationError
+
+if TYPE_CHECKING:
+    from ptk_repl.core.interfaces.cli_context import ICliContext
 
 
 def _parse_args_to_dict(arg_str: str, model_cls: type[BaseModel]) -> dict[str, Any]:
@@ -68,10 +71,12 @@ def _parse_args_to_dict(arg_str: str, model_cls: type[BaseModel]) -> dict[str, A
 
 def typed_command[T: BaseModel](
     model_cls: type[T],
-) -> Callable[[Callable[..., Any]], Callable[[Any, str], None]]:
+) -> Callable[[Callable[..., Any]], Callable[["ICliContext", str], None]]:
     """类型安全命令装饰器。
 
     使用 Pydantic 模型进行参数验证。
+
+    现在使用 ICliContext 接口，提供类型安全。
 
     Args:
         model_cls: Pydantic 模型类
@@ -93,19 +98,19 @@ def typed_command[T: BaseModel](
         ```
     """
 
-    def decorator(func: Callable[..., Any]) -> Callable[[Any, str], None]:
+    def decorator(func: Callable[..., Any]) -> Callable[["ICliContext", str], None]:
         @wraps(func)
-        def wrapper(cli_instance: Any, arg_str: str) -> None:
+        def wrapper(cli_context: "ICliContext", arg_str: str) -> None:
             try:
                 kwargs = _parse_args_to_dict(arg_str, model_cls)
                 args = model_cls(**kwargs)
                 func(args)  # func 作为闭包，已经能访问外部的 self
             except ValidationError as e:
-                cli_instance.perror(f"参数验证错误:\n{e}")
+                cli_context.perror(f"参数验证错误:\n{e}")
             except ValueError as e:
-                cli_instance.perror(f"参数解析错误: {e}")
+                cli_context.perror(f"参数解析错误: {e}")
             except Exception as e:
-                cli_instance.perror(f"错误: {e}")
+                cli_context.perror(f"错误: {e}")
 
         wrapper._is_typed_wrapper = True  # type: ignore[attr-defined]
         wrapper._original_func = func  # type: ignore[attr-defined]
