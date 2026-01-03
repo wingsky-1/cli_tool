@@ -81,8 +81,7 @@ class PromptToolkitCLI:
         self._command_executor = CommandExecutor(
             registry=self.registry,
             module_loader=self._module_loader,
-            output_callback=self.poutput,
-            error_callback=self.perror,
+            cli_context=self,  # PromptToolkitCLI 实现 ICliContext
         )
 
         # 命令注册上下文
