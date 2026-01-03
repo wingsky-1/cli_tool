@@ -18,8 +18,12 @@ from ptk_repl.core.loaders import (
     ModuleManager,
     ModuleRegister,
 )
+from ptk_repl.core.loaders import (
+    ModuleLoader as NewModuleLoader,
+)
 from ptk_repl.core.prompts import PromptManager
 from ptk_repl.core.registry import CommandRegistry
+from ptk_repl.core.resolvers import ConfigurableResolver
 from ptk_repl.core.state import StateManager
 
 if TYPE_CHECKING:
@@ -81,20 +85,23 @@ class PromptToolkitCLI:
 
         # 初始化新的模块加载组件
         discoverer = ModuleDiscoverer(modules_path=Path(__file__).parent / "modules")
-        # 暂时使用 legacy_loader 作为 loader（新的 ModuleLoader 功能不完整）
-        loader = legacy_loader
+
+        # 创建新的 ModuleLoader（简化版）
+        name_resolver = ConfigurableResolver(self.config.get("modules.name_mappings", {}))
+        new_loader = NewModuleLoader(name_resolver)
+
         register = ModuleRegister(self.registry, self.state)
 
         # 初始化模块管理器（门面 + 适配器）
         self._module_manager = ModuleManager(
             discoverer=discoverer,
-            loader=loader,
+            loader=new_loader,  # 使用新的 ModuleLoader
             register=register,
             config=self.config,
             auto_completer=self.auto_completer,
             register_commands_callback=self.register_module_commands,
             error_callback=self.perror,
-            legacy_loader=legacy_loader,
+            legacy_loader=legacy_loader,  # 旧 Loader 提供 lazy_modules 等功能
         )
 
         # 初始化命令执行器（使用 IModuleLoader 接口）
