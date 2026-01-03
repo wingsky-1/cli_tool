@@ -42,9 +42,13 @@ class SSHLogViewer:
         config = load_ssh_config(self.cli.config)
 
         # 1. 确定目标环境
+        from ptk_repl.state.connection_context import SSHConnectionContext
+
         env_name = env
         if not env_name:
-            env_name = gs.current_ssh_env
+            ctx = gs.get_connection_context()
+            if isinstance(ctx, SSHConnectionContext):
+                env_name = ctx.current_env
 
         if not env_name:
             # 没有当前环境，弹出选择对话框
@@ -117,9 +121,9 @@ class SSHLogViewer:
                 self.ssh_state.add_connection(conn_info)
 
                 # 设置为当前环境
-                gs.connected = True
-                gs.connection_type = "ssh"
-                gs.current_ssh_env = env_config.name
+                ssh_ctx = SSHConnectionContext()
+                ssh_ctx.set_env(env_config.name)
+                gs.set_connection_context(ssh_ctx)
 
                 self.cli.poutput(f"已连接到 {env_name}")
             except Exception as e:

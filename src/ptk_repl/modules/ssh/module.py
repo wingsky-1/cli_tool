@@ -106,12 +106,15 @@ class SSHModule(CommandModule):
         @typed_command(DisconnectArgs)
         def disconnect(args: DisconnectArgs) -> None:
             """断开 SSH 连接。"""
+            from ptk_repl.state.connection_context import SSHConnectionContext
+
             gs = cli.state.global_state
 
             # 确定要断开的环境
+            ctx = gs.get_connection_context()
             env_name = args.env_name
-            if not env_name:
-                env_name = gs.current_ssh_env
+            if not env_name and isinstance(ctx, SSHConnectionContext):
+                env_name = ctx.current_env
 
             if not env_name:
                 cli.perror("没有指定环境，也没有当前连接")

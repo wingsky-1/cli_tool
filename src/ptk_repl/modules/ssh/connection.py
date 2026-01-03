@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from ptk_repl.modules.ssh.config import load_ssh_config
 from ptk_repl.modules.ssh.ssh_client import SSHClientManager
 from ptk_repl.modules.ssh.state import SSHConnectionInfo, SSHState
+from ptk_repl.state.connection_context import SSHConnectionContext
 
 if TYPE_CHECKING:
     from ptk_repl.cli import PromptToolkitCLI
@@ -126,16 +127,17 @@ class SSHConnectionManager:
         self.ssh_state.remove_connection(env_name)
 
         # 如果断开的是当前环境，需要切换
-        was_current = gs.current_ssh_env == env_name
+        ctx = gs.get_connection_context()
+        was_current = isinstance(ctx, SSHConnectionContext) and ctx.current_env == env_name
         if was_current:
             next_env = self.ssh_state.get_first_active_environment()
             if next_env:
-                gs.current_ssh_env = next_env
+                new_ctx = SSHConnectionContext()
+                new_ctx.set_env(next_env)
+                gs.set_connection_context(new_ctx)
                 self.cli.poutput(f"已断开 {env_name}，当前环境切换为: {next_env}")
             else:
-                gs.connected = False
-                gs.connection_type = None
-                gs.current_ssh_env = None
+                gs.clear_connection_context()
                 self.cli.poutput(f"已断开 {env_name}，没有其他活跃连接")
         else:
             self.cli.poutput(f"已断开 {env_name}")
@@ -149,6 +151,6 @@ class SSHConnectionManager:
             env_name: 环境名称
         """
         gs = self.cli.state.global_state
-        gs.connected = True
-        gs.connection_type = "ssh"
-        gs.current_ssh_env = env_name
+        ssh_ctx = SSHConnectionContext()
+        ssh_ctx.set_env(env_name)
+        gs.set_connection_context(ssh_ctx)

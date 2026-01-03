@@ -28,11 +28,17 @@ def select_environment_dialog(
     if not config or not config.environments:
         return None
 
+    # 获取当前环境
+    from ptk_repl.state.connection_context import SSHConnectionContext
+
+    ctx = global_state.get_connection_context()
+    current_env = ctx.current_env if isinstance(ctx, SSHConnectionContext) else None
+
     # 构建选项列表（包含连接状态）
     choices = []
     for env in config.environments:
         is_connected = env.name in state.active_environments
-        is_current = global_state.current_ssh_env == env.name
+        is_current = current_env == env.name
 
         # 状态图标
         if is_current:
