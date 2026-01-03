@@ -308,3 +308,12 @@ class PromptToolkitCLI:
             text: 信息文本
         """
         print(text)
+
+
+def main() -> None:
+    """主入口点。
+
+    用于命令行启动和打包后的可执行文件。
+    """
+    cli = PromptToolkitCLI()
+    cli.run()

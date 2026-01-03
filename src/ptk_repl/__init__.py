@@ -4,3 +4,7 @@
 """
 
 __version__ = "0.1.0"
+
+from ptk_repl.cli import main
+
+__all__ = ["main"]
