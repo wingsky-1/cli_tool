@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from ptk_repl.core.config_manager import ConfigManager
 from ptk_repl.core.registry import CommandRegistry
+from ptk_repl.core.resolvers import ConfigurableResolver, IModuleNameResolver
 from ptk_repl.core.state_manager import StateManager
 
 if TYPE_CHECKING:
@@ -26,6 +27,7 @@ class ModuleLoader:
         auto_completer: "AutoCompleter",
         register_commands_callback: Callable[["CommandModule"], None],
         error_callback: Callable[[str], None],
+        name_resolver: IModuleNameResolver | None = None,
     ) -> None:
         """初始化模块加载器。
 
@@ -36,6 +38,7 @@ class ModuleLoader:
             auto_completer: 自动补全器
             register_commands_callback: 注册命令的回调函数
             error_callback: 错误回调函数
+            name_resolver: 模块名称解析器（可选，默认使用 ConfigurableResolver）
         """
         self.registry = registry
         self.state_manager = state_manager
@@ -43,6 +46,9 @@ class ModuleLoader:
         self.auto_completer = auto_completer
         self.register_commands_callback = register_commands_callback
         self.error_callback = error_callback
+
+        # 使用注入的解析器或默认的可配置解析器
+        self._name_resolver = name_resolver or ConfigurableResolver()
 
         # 懒加载支持
         self._lazy_modules: dict[str, type] = {}
@@ -121,9 +127,8 @@ class ModuleLoader:
                     module_path = f"ptk_repl.modules.{module_name}"
                     mod = importlib.import_module(module_path)
 
-                    # 特殊模块名称映射（处理缩写词）
-                    special_casing = {"ssh": "SSH"}
-                    class_name_prefix = special_casing.get(module_name, module_name.capitalize())
+                    # 使用解析器替代硬编码
+                    class_name_prefix = self._name_resolver.resolve_class_name(module_name)
                     module_cls = getattr(mod, f"{class_name_prefix}Module")
                     module = module_cls()
                     self.registry.register_module(module)
@@ -145,9 +150,8 @@ class ModuleLoader:
             module_path = f"ptk_repl.modules.{module_name}"
             mod = importlib.import_module(module_path)
 
-            # 特殊模块名称映射（处理缩写词）
-            special_casing = {"ssh": "SSH"}
-            class_name_prefix = special_casing.get(module_name, module_name.capitalize())
+            # 使用解析器替代硬编码
+            class_name_prefix = self._name_resolver.resolve_class_name(module_name)
             module_cls = getattr(mod, f"{class_name_prefix}Module")
 
             self._lazy_modules[module_name] = module_cls
