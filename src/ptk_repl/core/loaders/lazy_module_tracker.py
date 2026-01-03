@@ -32,7 +32,9 @@ class LazyModuleTracker:
         try:
             temp_instance = module_cls()
             if hasattr(temp_instance, "aliases") and temp_instance.aliases:
-                self._alias_to_module[temp_instance.aliases] = module_name
+                # 为每个别名创建映射
+                for alias in temp_instance.aliases:
+                    self._alias_to_module[alias] = module_name
         except Exception:
             # 如果创建实例失败，跳过别名缓存
             pass
