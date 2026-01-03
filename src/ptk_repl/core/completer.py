@@ -142,8 +142,9 @@ class AutoCompleter:
                 if short_name:
                     completion_dict[short_name] = sorted(commands)
 
-        # 7. 命令别名补全
-        for alias, _full_cmd in self._registry._alias_map.items():
+        # 7. 命令别名补全（使用公共接口）
+        aliases = self._registry.get_all_aliases()
+        for alias, _full_cmd in aliases.items():
             if " " in alias:  # 处理 "db connect" 这样的别名
                 parts = alias.split(maxsplit=1)
                 if len(parts) == 2:
@@ -185,8 +186,9 @@ class AutoCompleter:
         """
         param_dict: dict[str, list[str]] = {}
 
-        # 遍历所有命令，检查是否使用 typed_command
-        for full_cmd, (_module, _cmd, handler) in self._registry._command_map.items():
+        # 遍历所有命令，检查是否使用 typed_command（使用公共接口）
+        commands = self._registry.get_all_commands()
+        for full_cmd, (_module, _cmd, handler) in commands.items():
             if hasattr(handler, "_original_func"):
                 original_func = handler._original_func
                 if hasattr(original_func, "_typed_model"):
@@ -209,8 +211,9 @@ class AutoCompleter:
                     if params:
                         param_dict[full_cmd] = params
 
-                        # 为别名也生成参数补全
-                        for alias, full in self._registry._alias_map.items():
+                        # 为别名也生成参数补全（使用公共接口）
+                        aliases = self._registry.get_all_aliases()
+                        for alias, full in aliases.items():
                             if full == full_cmd:
                                 param_dict[alias] = params
 
@@ -357,9 +360,10 @@ class AutoCompleter:
         Returns:
             完整命令（如果是别名则解析，否则原样返回）
         """
-        # 检查是否在别名映射中
-        if command in self._registry._alias_map:
-            return self._registry._alias_map[command]
+        # 检查是否在别名映射中（使用公共接口）
+        aliases = self._registry.get_all_aliases()
+        if command in aliases:
+            return aliases[command]
 
         return command
 

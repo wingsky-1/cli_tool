@@ -164,3 +164,41 @@ class CommandRegistry:
             模块列表
         """
         return list(self._modules.values())
+
+    def get_all_commands(self) -> dict[str, tuple[str, str, Callable]]:
+        """获取所有命令的副本（避免直接访问私有成员）。
+
+        Returns:
+            命令字典的副本 {full_command: (module_name, command_name, handler)}
+            - full_command: 完整命令（如 "database connect" 或 "help"）
+            - module_name: 模块名称
+            - command_name: 命令名称
+            - handler: 命令处理函数
+
+        Note:
+            返回的是副本，修改返回值不会影响原始注册表。
+
+        Examples:
+            >>> commands = registry.get_all_commands()
+            >>> "help" in commands
+            True
+        """
+        return self._command_map.copy()
+
+    def get_all_aliases(self) -> dict[str, str]:
+        """获取所有别名的副本（避免直接访问私有成员）。
+
+        Returns:
+            别名字典的副本 {alias: full_command}
+            - alias: 别名（如 "h"）
+            - full_command: 对应的完整命令（如 "help"）
+
+        Note:
+            返回的是副本，修改返回值不会影响原始注册表。
+
+        Examples:
+            >>> aliases = registry.get_all_aliases()
+            >>> aliases["h"]
+            "help"
+        """
+        return self._alias_map.copy()
