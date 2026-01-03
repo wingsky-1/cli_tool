@@ -15,13 +15,15 @@ class GlobalState(BaseModel):
     重构后移除了特定模块的字段，使用组合的连接上下文。
     """
 
+    model_config = {"arbitrary_types_allowed": True}
+
     connected: bool = False
     current_host: str | None = None
     current_port: int | None = None
     auth_token: str | None = None
 
     # 使用组合而非专用字段
-    _connection_context: ConnectionContext | None = Field(default=None, exclude=True)
+    connection_context: ConnectionContext | None = Field(default=None, exclude=True)
 
     def set_connection_context(self, context: ConnectionContext) -> None:
         """设置连接上下文。
@@ -29,7 +31,7 @@ class GlobalState(BaseModel):
         Args:
             context: 连接上下文对象
         """
-        self._connection_context = context
+        self.connection_context = context
         self.connected = context.is_connected()
 
     def get_connection_context(self) -> ConnectionContext | None:
@@ -38,13 +40,13 @@ class GlobalState(BaseModel):
         Returns:
             连接上下文对象，如果未设置则返回 None
         """
-        return self._connection_context
+        return self.connection_context
 
     def clear_connection_context(self) -> None:
         """清除连接上下文。"""
-        if self._connection_context:
-            self._connection_context.disconnect()
-        self._connection_context = None
+        if self.connection_context:
+            self.connection_context.disconnect()
+        self.connection_context = None
         self.connected = False
         self.current_host = None
         self.current_port = None
@@ -52,8 +54,8 @@ class GlobalState(BaseModel):
 
     def get_connection_info(self) -> dict[str, Any]:
         """获取当前连接信息。"""
-        if self._connection_context:
-            info = self._connection_context.get_connection_info()
+        if self.connection_context:
+            info = self.connection_context.get_connection_info()
             info.update(
                 {
                     "connected": self.connected,
