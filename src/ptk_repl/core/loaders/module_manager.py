@@ -80,7 +80,7 @@ class ModuleManager:
                 # 4. 注册命令
                 self._register_commands_callback(module)
                 # 5. 通知补全器更新
-                self._auto_completer._invalidate_cache()
+                self._auto_completer.refresh()
             except Exception as e:
                 self._error_callback(f"注册模块 '{module_name}' 失败: {e}")
                 return None

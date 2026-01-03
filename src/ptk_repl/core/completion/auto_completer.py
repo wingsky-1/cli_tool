@@ -70,6 +70,17 @@ class AutoCompleter:
         new_commands = set(commands)
         self._lazy_module_commands[module_name] = sorted(existing | new_commands)
 
+        self.refresh()
+
+    def refresh(self) -> None:
+        """刷新补全缓存。
+
+        在命令注册或模块加载后调用此方法，
+        强制重新生成补全字典。
+
+        Example:
+            >>> completer.refresh()
+        """
         self._invalidate_cache()
 
     def _invalidate_cache(self) -> None:

@@ -27,9 +27,6 @@ from ptk_repl.core.resolvers import ConfigurableResolver
 from ptk_repl.core.state import StateManager
 
 if TYPE_CHECKING:
-    from ptk_repl.core.interfaces import ICliContext  # noqa: F401 (类型检查用)
-
-if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
 
 
@@ -162,7 +159,7 @@ class PromptToolkitCLI:
             aliases: 命令别名列表（可选）
         """
         self.registry.register_command(module_name, command_name, handler, aliases)
-        self.auto_completer._invalidate_cache()
+        self.auto_completer.refresh()
 
     def command(
         self,
@@ -255,6 +252,9 @@ class PromptToolkitCLI:
 
             # 自动注册到补全系统（替代 get_completion_commands）
             self.auto_completer.register_lazy_commands(module_name, [command_name])
+
+            # 刷新补全缓存
+            self.auto_completer.refresh()
 
             return func
 

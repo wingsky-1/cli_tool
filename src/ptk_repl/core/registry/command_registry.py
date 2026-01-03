@@ -73,7 +73,7 @@ class CommandRegistry:
 
         # 自动通知补全器更新
         if self._completer:
-            self._completer._invalidate_cache()
+            self._completer.refresh()
 
     def get_command_info(self, command_str: str) -> tuple[str, str, Callable] | None:
         """获取命令信息。

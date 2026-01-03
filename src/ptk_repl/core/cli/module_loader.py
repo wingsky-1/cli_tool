@@ -180,7 +180,8 @@ class ModuleLoader:
             self.register_commands_callback(module)
             self._loaded_modules.add(module_name)
             del self._lazy_modules[module_name]
-            self.auto_completer._invalidate_cache()
+            # 刷新补全缓存
+            self.auto_completer.refresh()
 
     @property
     def loaded_modules(self) -> set[str]:
