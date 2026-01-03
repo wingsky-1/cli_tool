@@ -41,3 +41,19 @@ class IModuleRegister(Protocol):
             True
         """
         ...
+
+    def get_module(self, module_name: str) -> "CommandModule | None":
+        """获取已注册的模块实例。
+
+        Args:
+            module_name: 模块名称
+
+        Returns:
+            模块实例，如果不存在则返回 None
+
+        Examples:
+            >>> module = register.get_module("ssh")
+            >>> if module:
+            ...     print(f"找到模块: {module.name}")
+        """
+        ...

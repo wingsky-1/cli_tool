@@ -42,6 +42,17 @@ class ModuleRegister:
         """
         return module_name in self._registry._modules
 
+    def get_module(self, module_name: str) -> "CommandModule | None":
+        """获取已注册的模块实例。
+
+        Args:
+            module_name: 模块名称
+
+        Returns:
+            模块实例，如果不存在则返回 None
+        """
+        return self._registry.get_module(module_name)
+
     def register(self, module: "CommandModule") -> None:
         """注册模块到 CLI。
 

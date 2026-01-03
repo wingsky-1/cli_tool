@@ -9,19 +9,12 @@ from prompt_toolkit.completion import NestedCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
 
-from ptk_repl.core.cli import ModuleLoader, StyleManager
+from ptk_repl.core.cli import StyleManager
 from ptk_repl.core.completion import AutoCompleter
 from ptk_repl.core.configuration import ConfigManager
 from ptk_repl.core.execution import CommandExecutor
 from ptk_repl.core.interfaces import IPromptProvider
-from ptk_repl.core.loaders import (
-    ModuleDiscoverer,
-    ModuleManager,
-    ModuleRegister,
-)
-from ptk_repl.core.loaders import (
-    ModuleLoader as NewModuleLoader,
-)
+from ptk_repl.core.loaders import ModuleLifecycleManager, ModuleRegister
 from ptk_repl.core.prompts import PromptManager
 from ptk_repl.core.registry import CommandRegistry
 from ptk_repl.core.resolvers import ConfigurableResolver
@@ -71,35 +64,18 @@ class PromptToolkitCLI:
         self.registry.set_completer(self.auto_completer)
         self.session.completer = self.auto_completer.to_prompt_toolkit_completer()
 
-        # 初始化旧的 ModuleLoader（提供完整的懒加载支持）
-        legacy_loader = ModuleLoader(
-            registry=self.registry,
-            state_manager=self.state,
-            config=self.config,
-            auto_completer=self.auto_completer,
-            register_commands_callback=self.register_module_commands,
-            error_callback=self.perror,
-        )
-
-        # 初始化新的模块加载组件
-        discoverer = ModuleDiscoverer(modules_path=Path(__file__).parent / "modules")
-
-        # 创建新的 ModuleLoader（简化版）
+        # 初始化模块生命周期管理器（统一模块加载）
         name_resolver = ConfigurableResolver(self.config.get("modules.name_mappings", {}))
-        new_loader = NewModuleLoader(name_resolver)
-
         register = ModuleRegister(self.registry, self.state)
 
-        # 初始化模块管理器（门面 + 适配器）
-        self._module_manager = ModuleManager(
-            discoverer=discoverer,
-            loader=new_loader,  # 使用新的 ModuleLoader
-            register=register,
+        self._module_manager = ModuleLifecycleManager(
+            modules_path=Path(__file__).parent / "modules",
+            name_resolver=name_resolver,
+            module_register=register,
             config=self.config,
             auto_completer=self.auto_completer,
             register_commands_callback=self.register_module_commands,
             error_callback=self.perror,
-            legacy_loader=legacy_loader,  # 旧 Loader 提供 lazy_modules 等功能
         )
 
         # 初始化命令执行器（使用 IModuleLoader 接口）

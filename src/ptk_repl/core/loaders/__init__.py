@@ -1,20 +1,15 @@
-"""模块加载组件。
+"""模块加载器包。"""
 
-本模块包含模块生命周期的各个组件：
-- ModuleDiscoverer: 模块发现
-- ModuleLoader: 模块加载
-- ModuleRegister: 模块注册
-- ModuleManager: 模块管理（门面）
-"""
-
-from ptk_repl.core.loaders.module_discoverer import ModuleDiscoverer
-from ptk_repl.core.loaders.module_loader import ModuleLoader
-from ptk_repl.core.loaders.module_manager import ModuleManager
+from ptk_repl.core.loaders.lazy_module_tracker import LazyModuleTracker
+from ptk_repl.core.loaders.module_discovery_service import ModuleDiscoveryService
+from ptk_repl.core.loaders.module_lifecycle_manager import ModuleLifecycleManager
 from ptk_repl.core.loaders.module_register import ModuleRegister
+from ptk_repl.core.loaders.unified_module_loader import UnifiedModuleLoader
 
 __all__ = [
-    "ModuleDiscoverer",
-    "ModuleLoader",
-    "ModuleManager",
+    "LazyModuleTracker",
+    "ModuleDiscoveryService",
+    "ModuleLifecycleManager",
     "ModuleRegister",
+    "UnifiedModuleLoader",
 ]
