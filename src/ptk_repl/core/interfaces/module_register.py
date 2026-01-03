@@ -26,3 +26,18 @@ class IModuleRegister(Protocol):
             # 模块现在已注册并可用
         """
         ...
+
+    def is_registered(self, module_name: str) -> bool:
+        """检查模块是否已注册。
+
+        Args:
+            module_name: 模块名称
+
+        Returns:
+            是否已注册
+
+        Examples:
+            >>> register.is_registered("ssh")
+            True
+        """
+        ...
