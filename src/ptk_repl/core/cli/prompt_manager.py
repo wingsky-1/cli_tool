@@ -23,20 +23,13 @@ class PromptManager:
         Returns:
             提示符字符串
         """
-        from ptk_repl.state.connection_context import (
-            DatabaseConnectionContext,
-            SSHConnectionContext,
-        )
-
         gs = self.state_manager.global_state
         if gs.connected:
             ctx = gs.get_connection_context()
-            if isinstance(ctx, SSHConnectionContext) and ctx.current_env:
-                # SSH 连接：显示环境名称
-                return f"(ptk:{ctx.current_env}) > "
-            elif isinstance(ctx, DatabaseConnectionContext) and gs.current_host:
-                # Database 连接：显示主机和端口
-                return f"(ptk:{gs.current_host}:{gs.current_port}) > "
+            if ctx and ctx.is_connected():
+                # 使用多态方法，无需 isinstance 检查
+                suffix = ctx.get_prompt_suffix()
+                return f"(ptk:{suffix}) > "
             elif gs.current_host:
                 # 兼容旧版本：显示主机和端口
                 return f"(ptk:{gs.current_host}:{gs.current_port}) > "

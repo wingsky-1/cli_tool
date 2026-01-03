@@ -44,6 +44,24 @@ class ConnectionContext(ABC):
         """获取连接信息。"""
         pass
 
+    @abstractmethod
+    def get_prompt_suffix(self) -> str:
+        """获取提示符后缀。
+
+        使用多态方法替代硬编码的 isinstance 检查，
+        遵循开闭原则（OCP）。
+
+        Returns:
+            提示符后缀（如 "prod" 或 "database"）
+
+        Examples:
+            >>> ssh_ctx.get_prompt_suffix()
+            "prod"
+            >>> db_ctx.get_prompt_suffix()
+            "database"
+        """
+        pass
+
 
 class SSHConnectionContext(ConnectionContext):
     """SSH 连接上下文。"""
@@ -89,6 +107,10 @@ class SSHConnectionContext(ConnectionContext):
             "port": self._port,
         }
 
+    def get_prompt_suffix(self) -> str:
+        """获取提示符后缀（返回当前 SSH 环境名称）。"""
+        return self._current_env or "unknown"
+
 
 class DatabaseConnectionContext(ConnectionContext):
     """数据库连接上下文。"""
@@ -133,3 +155,7 @@ class DatabaseConnectionContext(ConnectionContext):
             "host": self._host,
             "port": self._port,
         }
+
+    def get_prompt_suffix(self) -> str:
+        """获取提示符后缀（返回当前数据库名称）。"""
+        return self._database or "unknown"
