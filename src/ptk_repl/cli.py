@@ -21,6 +21,9 @@ from ptk_repl.core.registry import CommandRegistry
 from ptk_repl.core.state_manager import StateManager
 
 if TYPE_CHECKING:
+    from ptk_repl.core.interfaces import ICliContext  # noqa: F401 (类型检查用)
+
+if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
 
 
@@ -28,6 +31,8 @@ class PromptToolkitCLI:
     """基于 prompt_toolkit 的模块化 CLI。
 
     使用 AutoCompleter 自动发现命令并提供补全。
+
+    实现 ICliContext 接口，提供类型安全的上下文传递。
     """
 
     def __init__(self, config_path: str | None = None, history_path: str | None = None) -> None:
