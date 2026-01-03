@@ -47,8 +47,13 @@ class ModuleLoader:
         self.register_commands_callback = register_commands_callback
         self.error_callback = error_callback
 
-        # 使用注入的解析器或默认的可配置解析器
-        self._name_resolver = name_resolver or ConfigurableResolver()
+        # 使用注入的解析器或从配置创建可配置解析器
+        if name_resolver:
+            self._name_resolver = name_resolver
+        else:
+            # 从 ConfigManager 的内置配置获取 name_mappings
+            name_mappings = self.config.get("modules.name_mappings", {})
+            self._name_resolver = ConfigurableResolver(name_mappings)
 
         # 懒加载支持
         self._lazy_modules: dict[str, type] = {}

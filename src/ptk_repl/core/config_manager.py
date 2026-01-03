@@ -3,13 +3,18 @@
 from pathlib import Path
 from typing import Any
 
-import yaml
+from ptk_repl.core.config import (
+    CompositeConfigProvider,
+    EnvConfigProvider,
+    IConfigProvider,
+    YamlConfigProvider,
+)
 
 
 class ConfigManager:
     """配置管理器。
 
-    从 YAML 文件加载配置，如果没有配置文件则使用默认配置。
+    使用组合配置提供者加载配置，简化职责。
     """
 
     # 默认配置
@@ -24,21 +29,39 @@ class ConfigManager:
             "show_descriptions": True,
             "cache": {"enabled": True},
         },
+        # 内置的模块名称映射配置（不暴露给用户）
+        "modules": {
+            "name_mappings": {
+                "ssh": "SSH",
+                "api": "API",
+            }
+        },
     }
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(
+        self, config_path: str | None = None, provider: IConfigProvider | None = None
+    ) -> None:
         """初始化配置管理器。
 
         Args:
             config_path: 配置文件路径（可选）
+            provider: 配置提供者（可选，默认使用 CompositeConfigProvider）
         """
-        self.config_path = config_path or self._find_config()
-        self._config: dict[str, Any] = {}
-        if self.config_path:
-            self._load()
+        if provider:
+            self._provider = provider
         else:
-            # 使用默认配置
-            self._config = self.DEFAULT_CONFIG.copy()
+            # 构建默认的配置提供者链
+            providers: list[IConfigProvider] = []
+            config_file = config_path or self._find_config()
+            if config_file:
+                # YAML 配置提供者（优先级低于环境变量）
+                providers.append(YamlConfigProvider(config_file))
+
+            # 环境变量配置提供者（优先级最高）
+            providers.append(EnvConfigProvider(prefix="PTK_"))
+
+            # 组合提供者
+            self._provider = CompositeConfigProvider(providers)
 
     def _find_config(self) -> str | None:
         """查找配置文件。
@@ -56,36 +79,6 @@ class ConfigManager:
                 return str(path)
         return None
 
-    def _load(self) -> None:
-        """从文件加载配置。"""
-        if not self.config_path:
-            return
-
-        try:
-            with open(self.config_path, encoding="utf-8") as f:
-                loaded = yaml.safe_load(f)
-                loaded_config = loaded if isinstance(loaded, dict) else {}
-
-                # 合并默认配置和用户配置
-                self._config = self.DEFAULT_CONFIG.copy()
-                self._merge_config(self._config, loaded_config)
-        except Exception:
-            # 加载失败时使用默认配置
-            self._config = self.DEFAULT_CONFIG.copy()
-
-    def _merge_config(self, base: dict, override: dict) -> None:
-        """递归合并配置。
-
-        Args:
-            base: 基础配置（会被修改）
-            override: 覆盖配置
-        """
-        for key, value in override.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                self._merge_config(base[key], value)
-            else:
-                base[key] = value
-
     def get(self, key: str, default: Any = None) -> Any:
         """获取配置值。
 
@@ -93,20 +86,23 @@ class ConfigManager:
 
         Args:
             key: 配置键
-            default: 默认值
+            default: 默认值（从 DEFAULT_CONFIG 获取）
 
         Returns:
             配置值，如果未找到则返回默认值
         """
-        keys = key.split(".")
-        value: Any = self._config
+        # 先从提供者获取
+        value = self._provider.get(key)
 
-        for k in keys:
-            if isinstance(value, dict):
-                value = value.get(k)
-                if value is None:
+        # 如果提供者没有值，使用默认配置
+        if value is None:
+            keys = key.split(".")
+            default_value: Any = self.DEFAULT_CONFIG
+            for k in keys:
+                if isinstance(default_value, dict) and k in default_value:
+                    default_value = default_value[k]
+                else:
                     return default
-            else:
-                return default
+            return default_value if default_value is not None else default
 
-        return value if value is not None else default
+        return value
