@@ -532,6 +532,526 @@ def do_connect(args: list[str]) -> None:
     port = int(args[1]) if len(args) > 1 else 6379
 ```
 
+---
+
+## 🔐 使用连接上下文（ConnectionContext）（2026-01-03 新增）
+
+### 什么是连接上下文？
+
+连接上下文（ConnectionContext）是一种**抽象基类**，使用**多态方法**替代 `isinstance` 检查，符合**开闭原则（OCP）**。
+
+### 为什么使用连接上下文？
+
+**问题：旧实现（违反 OCP）**
+```python
+# ❌ 旧实现：使用 isinstance 检查
+def get_prompt_suffix(self) -> str:
+    gs = self.state.global_state
+
+    if isinstance(gs.current_connection, SSHConnection):
+        return f"@{gs.current_connection.host}"
+    elif isinstance(gs.current_connection, DatabaseConnection):
+        return f"[{gs.current_connection.database}]"
+    # 每次添加新连接类型都需要修改这里！
+```
+
+**解决方案：新实现（符合 OCP）**
+```python
+# ✅ 新实现：使用多态方法
+class ConnectionContext(ABC):
+    @abstractmethod
+    def get_prompt_suffix(self) -> str:
+        """返回提示符后缀（多态方法）。"""
+        pass
+
+class SSHConnectionContext(ConnectionContext):
+    def get_prompt_suffix(self) -> str:
+        return f"@{self.host}"
+
+class DatabaseConnectionContext(ConnectionContext):
+    def get_prompt_suffix(self) -> str:
+        return f"[{self.database}]"
+
+# 添加新连接类型无需修改现有代码！
+class RedisConnectionContext(ConnectionContext):
+    def get_prompt_suffix(self) -> str:
+        return f"redis:{self.host}"
+```
+
+### 如何定义连接上下文
+
+**步骤 1**：定义连接上下文类
+
+```python
+"""Redis 连接上下文。"""
+
+from ptk_repl.state.connection_context import ConnectionContext, ConnectionType
+
+class RedisConnectionContext(ConnectionContext):
+    """Redis 连接上下文。"""
+
+    def __init__(
+        self,
+        host: str,
+        port: int = 6379,
+        db: int = 0
+    ) -> None:
+        """初始化 Redis 连接上下文。
+
+        Args:
+            host: Redis 主机地址
+            port: Redis 端口
+            db: 数据库编号
+        """
+        self.host = host
+        self.port = port
+        self.db = db
+        self._is_connected = False
+
+    @property
+    def connection_type(self) -> ConnectionType:
+        """连接类型。"""
+        return ConnectionType.REDIS
+
+    @property
+    def is_connected(self) -> bool:
+        """是否已连接。"""
+        return self._is_connected
+
+    def connect(self) -> None:
+        """连接到 Redis。"""
+        # 实际连接逻辑
+        self._is_connected = True
+
+    def disconnect(self) -> None:
+        """断开连接。"""
+        self._is_connected = False
+
+    def get_prompt_suffix(self) -> str:
+        """返回提示符后缀（多态方法）。"""
+        return f"redis:{self.host}:{self.port}[{self.db}]"
+```
+
+**步骤 2**：在 GlobalState 中组合连接上下文
+
+```python
+"""扩展 GlobalState 以支持 Redis 连接上下文。"""
+
+from typing import Literal
+from pydantic import Field
+from ptk_repl.state.global_state import GlobalState as BaseGlobalState
+from ptk_repl.modules.redis.connection_context import RedisConnectionContext
+
+class GlobalState(BaseGlobalState):
+    """扩展的全局状态。"""
+
+    redis_context: RedisConnectionContext | None = Field(
+        default=None,
+        description="Redis 连接上下文"
+    )
+
+    def get_active_context(self) -> ConnectionContext | None:
+        """获取当前活跃的连接上下文。"""
+        # 按优先级返回活跃的连接上下文
+        if self.ssh_context and self.ssh_context.is_connected:
+            return self.ssh_context
+        elif self.db_context and self.db_context.is_connected:
+            return self.db_context
+        elif self.redis_context and self.redis_context.is_connected:
+            return self.redis_context
+        return None
+```
+
+**步骤 3**：在模块中使用连接上下文
+
+```python
+class RedisModule(CommandModule):
+    """Redis 管理模块。"""
+
+    def register_commands(self, cli: "PromptToolkitCLI") -> None:
+        """注册 Redis 命令。"""
+        self.cli = cli
+
+        @cli.command()
+        @typed_command(ConnectArgs)
+        def do_connect(args: ConnectArgs) -> None:
+            """连接到 Redis 服务器。"""
+            # 创建连接上下文
+            context = RedisConnectionContext(
+                host=args.host,
+                port=args.port,
+                db=args.db
+            )
+
+            # 连接
+            context.connect()
+
+            # 更新 GlobalState
+            cli.state.global_state.redis_context = context
+            cli.poutput(f"✓ 已连接到 Redis: {args.host}:{args.port}")
+```
+
+### 完整示例：Redis 模块使用连接上下文
+
+```python
+"""Redis 连接上下文。"""
+
+from enum import Enum
+from ptk_repl.state.connection_context import ConnectionContext, ConnectionType
+
+# 扩展 ConnectionType 枚举
+class ConnectionType(str, Enum):
+    """连接类型枚举。"""
+    SSH = "ssh"
+    DATABASE = "database"
+    REDIS = "redis"  # 新增
+
+class RedisConnectionContext(ConnectionContext):
+    """Redis 连接上下文。"""
+
+    def __init__(self, host: str, port: int = 6379, db: int = 0) -> None:
+        self.host = host
+        self.port = port
+        self.db = db
+        self._client = None
+
+    @property
+    def connection_type(self) -> ConnectionType:
+        return ConnectionType.REDIS
+
+    @property
+    def is_connected(self) -> bool:
+        return self._client is not None
+
+    def connect(self) -> None:
+        """连接到 Redis。"""
+        # import redis
+        # self._client = redis.Redis(host=self.host, port=self.port, db=self.db)
+        self._client = "mock_client"  # 模拟
+        print(f"已连接到 {self.host}:{self.port}")
+
+    def disconnect(self) -> None:
+        """断开连接。"""
+        if self._client:
+            # self._client.close()
+            self._client = None
+
+    def get_prompt_suffix(self) -> str:
+        """返回提示符后缀。"""
+        return f"redis:{self.host}[{self.db}]"
+
+    def execute_command(self, command: str, *args) -> Any:
+        """执行 Redis 命令。"""
+        if not self.is_connected:
+            raise Exception("未连接到 Redis")
+        # return self._client.execute_command(command, *args)
+        return f"执行: {command} {' '.join(args)}"
+```
+
+### 优势总结
+
+- ✅ **开闭原则**：添加新连接类型无需修改现有代码
+- ✅ **多态方法**：使用多态替代 `isinstance` 检查
+- ✅ **组合优于继承**：GlobalState 组合多个连接上下文
+- ✅ **易于扩展**：第三方可以自定义连接上下文
+
+---
+
+## ⚡ 使用错误处理系统（2026-01-03 新增）
+
+### 什么是错误处理系统？
+
+PTK_REPL 使用**责任链模式**处理异常，支持分层错误处理。
+
+### 错误处理链架构
+
+```
+ErrorHandlerChain（责任链）
+    │
+    ├─→ CLIErrorHandler      # 处理 CLIException
+    │   ├─ CommandException
+    │   └─ ModuleException
+    │
+    └─→ BaseErrorHandler     # 兜底处理其他异常
+```
+
+### 如何定义模块专用异常
+
+**步骤 1**：定义模块异常层次
+
+```python
+"""Redis 模块异常。"""
+
+from ptk_repl.core.exceptions.cli_exceptions import CLIException
+
+class RedisException(CLIException):
+    """Redis 模块异常基类。"""
+    pass
+
+class RedisConnectionError(RedisException):
+    """Redis 连接错误。"""
+
+    def __init__(self, message: str, host: str, port: int) -> None:
+        """初始化连接错误。
+
+        Args:
+            message: 错误消息
+            host: 主机地址
+            port: 端口号
+        """
+        super().__init__(message)
+        self.host = host
+        self.port = port
+
+class RedisCommandError(RedisException):
+    """Redis 命令执行错误。"""
+
+    def __init__(self, message: str, command: str) -> None:
+        """初始化命令错误。
+
+        Args:
+            message: 错误消息
+            command: Redis 命令
+        """
+        super().__init__(message)
+        self.command = command
+
+class RedisAuthError(RedisException):
+    """Redis 认证错误。"""
+    pass
+```
+
+**步骤 2**：在命令中抛出异常
+
+```python
+class RedisModule(CommandModule):
+    """Redis 管理模块。"""
+
+    @cli.command()
+    @typed_command(ConnectArgs)
+    def do_connect(args: ConnectArgs) -> None:
+        """连接到 Redis 服务器。"""
+        try:
+            # 尝试连接
+            client = redis.Redis(host=args.host, port=args.port, db=args.db)
+            client.ping()
+
+            # 保存连接
+            self.state.active_connection = f"{args.host}:{args.port}"
+            self.state.connections[self.state.active_connection] = client
+
+            cli.poutput(f"✓ 已连接到 Redis: {args.host}:{args.port}")
+
+        except redis.AuthenticationError:
+            # 认证失败
+            raise RedisAuthError(f"Redis 认证失败: {args.host}:{args.port}")
+
+        except redis.ConnectionError as e:
+            # 连接失败
+            raise RedisConnectionError(
+                f"无法连接到 Redis: {str(e)}",
+                host=args.host,
+                port=args.port
+            )
+
+        except Exception as e:
+            # 其他错误
+            raise RedisException(f"Redis 连接错误: {str(e)}")
+
+    @cli.command()
+    @typed_command(ExecuteArgs)
+    def do_execute(args: ExecuteArgs) -> None:
+        """执行 Redis 命令。"""
+        if not self.state or not self.state.active_connection:
+            raise RedisCommandError("未连接到 Redis", args.command)
+
+        try:
+            client = self.state.connections[self.state.active_connection]
+            result = client.execute_command(args.command, *args.args)
+            cli.poutput(f"结果: {result}")
+
+        except redis.ResponseError as e:
+            raise RedisCommandError(f"命令执行失败: {str(e)}", args.command)
+```
+
+**步骤 3**：错误处理链自动处理
+
+错误处理链会自动捕获并显示友好的错误消息：
+
+```python
+# 用户执行命令
+(ptk) redis connect invalid-host --port 9999
+
+# 错误处理链自动输出
+❌ RedisConnectionError: 无法连接到 Redis: Connection refused
+  主机: invalid-host
+  端口: 9999
+```
+
+### CLIException 层次结构
+
+```
+CLIException (基类)
+    ├─ CommandException
+    │   ├─ CommandNotFoundError
+    │   └─ InvalidArgumentError
+    ├─ ModuleException
+    │   ├─ ModuleNotFoundError
+    │   └─ ModuleLoadError
+    └─ [你的模块专用异常]
+        ├─ RedisException
+        │   ├─ RedisConnectionError
+        │   ├─ RedisCommandError
+        │   └─ RedisAuthError
+        └─ ...
+```
+
+### 错误处理最佳实践
+
+1. **使用专用异常类型**
+   ```python
+   # ✅ 推荐：使用专用异常
+   raise RedisConnectionError("连接失败", host="localhost", port=6379)
+
+   # ❌ 不推荐：使用通用异常
+   raise Exception("连接失败")
+   ```
+
+2. **提供详细的错误信息**
+   ```python
+   # ✅ 推荐：包含上下文信息
+   raise RedisCommandError(
+       f"命令执行失败: {str(e)}",
+       command=args.command
+   )
+
+   # ❌ 不推荐：信息不足
+   raise RedisCommandError("失败", args.command)
+   ```
+
+3. **异常层次清晰**
+   ```python
+   # ✅ 推荐：合理的异常层次
+   RedisException (基类)
+   ├─ RedisConnectionError (连接相关)
+   ├─ RedisCommandError (命令相关)
+   └─ RedisAuthError (认证相关)
+
+   # ❌ 不推荐：扁平的异常结构
+   RedisError (所有错误)
+   ```
+
+### 自定义错误处理器（高级）
+
+如果需要自定义错误处理逻辑，可以扩展错误处理链：
+
+```python
+from ptk_repl.core.error_handling.error_handlers import ErrorHandler
+
+class RedisErrorHandler(ErrorHandler):
+    """Redis 错误处理器。"""
+
+    def can_handle(self, error: Exception) -> bool:
+        """检查是否可以处理此错误。"""
+        return isinstance(error, RedisException)
+
+    def handle(self, error: Exception, cli) -> None:
+        """处理 Redis 异常。"""
+        if isinstance(error, RedisConnectionError):
+            cli.perror(f"连接错误: {error.message}")
+            cli.perror(f"  主机: {error.host}")
+            cli.perror(f"  端口: {error.port}")
+        elif isinstance(error, RedisCommandError):
+            cli.perror(f"命令错误: {error.message}")
+            cli.perror(f"  命令: {error.command}")
+        else:
+            cli.perror(f"Redis 错误: {error.message}")
+
+# 注册自定义处理器
+# cli.error_handler_chain.add_handler(RedisErrorHandler())
+```
+
+### 完整示例：带错误处理的 Redis 模块
+
+```python
+"""Redis 管理模块（带完整错误处理）。"""
+
+class RedisModule(CommandModule):
+    """Redis 管理模块。"""
+
+    @cli.command()
+    @typed_command(ConnectArgs)
+    def do_connect(args: ConnectArgs) -> None:
+        """连接到 Redis 服务器。"""
+        try:
+            # 连接逻辑
+            client = redis.Redis(
+                host=args.host,
+                port=args.port,
+                db=args.db,
+                password=args.password,
+                socket_connect_timeout=5
+            )
+
+            # 测试连接
+            client.ping()
+
+            # 保存连接
+            conn_name = f"{args.host}:{args.port}"
+            self.state.connections[conn_name] = {
+                "client": client,
+                "host": args.host,
+                "port": args.port,
+                "db": args.db
+            }
+            self.state.active_connection = conn_name
+
+            cli.poutput(f"✓ 已连接到 Redis: {args.host}:{args.port} [DB {args.db}]")
+
+        except redis.AuthenticationError:
+            raise RedisAuthError(
+                f"Redis 认证失败: {args.host}:{args.port}"
+            )
+
+        except redis.ConnectionError as e:
+            raise RedisConnectionError(
+                f"无法连接到 Redis 服务器: {str(e)}",
+                host=args.host,
+                port=args.port
+            )
+
+        except redis.TimeoutError:
+            raise RedisConnectionError(
+                f"连接超时: {args.host}:{args.port}",
+                host=args.host,
+                port=args.port
+            )
+
+        except Exception as e:
+            raise RedisException(f"未知错误: {str(e)}")
+
+    @cli.command()
+    def do_disconnect() -> None:
+        """断开 Redis 连接。"""
+        if not self.state or not self.state.active_connection:
+            raise RedisCommandError("未连接到 Redis", "disconnect")
+
+        try:
+            conn_name = self.state.active_connection
+            client = self.state.connections[conn_name]["client"]
+            client.close()
+
+            del self.state.connections[conn_name]
+            self.state.active_connection = None
+
+            cli.poutput(f"✓ 已断开连接: {conn_name}")
+
+        except Exception as e:
+            raise RedisException(f"断开连接失败: {str(e)}")
+```
+
+---
+
 ## 🎓 进阶主题
 
 详见：
@@ -541,4 +1061,4 @@ def do_connect(args: list[str]) -> None:
 
 ---
 
-**最后更新**: 2025-12-28
+**最后更新**: 2026-01-03

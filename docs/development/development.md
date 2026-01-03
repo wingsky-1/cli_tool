@@ -30,20 +30,105 @@ uv run pre-commit install
 
 ### 项目结构
 
+**核心目录组织（2026-01-03 重构）**：
+
 ```
-cli_tool/
-├── src/ptk_repl/          # 源代码
-│   ├── core/              # 核心框架
-│   ├── state/             # 状态定义
-│   ├── modules/           # 内置模块
-│   └── cli.py             # CLI 入口
-├── tests/                 # 测试代码
-├── docs/                  # 文档
-├── scripts/               # 构建脚本
-├── pyproject.toml         # 项目配置
-├── .pre-commit-config.yaml  # Pre-commit 配置
-└── ptk_repl_config.yaml.example  # 配置示例
+src/ptk_repl/
+├── cli.py                          # CLI 入口
+├── core/                           # 核心框架（按功能域分类，15个子包）
+│   ├── base/                       # 基类和抽象
+│   │   ├── __init__.py
+│   │   └── command_module.py       # CommandModule 基类
+│   ├── cli/                        # CLI 相关组件
+│   │   ├── __init__.py
+│   │   ├── prompt_manager.py       # 提示符管理
+│   │   └── style_manager.py        # 样式管理
+│   ├── completion/                 # 自动补全
+│   │   ├── __init__.py
+│   │   └── auto_completer.py       # AutoCompleter
+│   ├── configuration/              # 配置系统
+│   │   ├── __init__.py
+│   │   ├── config_manager.py       # ConfigManager
+│   │   ├── providers/              # 配置提供者
+│   │   └── themes/                 # 主题系统
+│   ├── decoration/                 # 装饰器
+│   │   ├── __init__.py
+│   │   └── typed_command.py        # typed_command 装饰器
+│   ├── error_handling/             # 错误处理系统（新增）
+│   │   ├── __init__.py
+│   │   ├── error_handlers.py       # ErrorHandlerChain
+│   │   └── exceptions.py           # CLIException 层次结构
+│   ├── exceptions/                 # 异常定义
+│   │   ├── __init__.py
+│   │   └── cli_exceptions.py       # CLIException
+│   ├── execution/                  # 命令执行
+│   │   ├── __init__.py
+│   │   └── command_executor.py     # CommandExecutor
+│   ├── formatting/                 # 格式化
+│   │   ├── __init__.py
+│   │   └── help_formatter.py       # HelpFormatter
+│   ├── interfaces/                 # Protocol 接口（新增7个）
+│   │   ├── __init__.py
+│   │   ├── cli_context.py          # ICliContext
+│   │   ├── module_loader.py        # IModuleLoader
+│   │   ├── module_register.py      # IModuleRegister
+│   │   ├── module_discoverer.py    # IModuleDiscoverer
+│   │   ├── command_resolver.py     # ICommandResolver
+│   │   ├── prompt_provider.py      # IPromptProvider
+│   │   └── registry.py             # IRegistry
+│   ├── loaders/                    # 模块加载系统（重构）
+│   │   ├── __init__.py
+│   │   ├── lazy_module_tracker.py  # LazyModuleTracker
+│   │   ├── unified_module_loader.py # UnifiedModuleLoader
+│   │   ├── module_discovery_service.py
+│   │   ├── module_lifecycle_manager.py
+│   │   └── module_register.py
+│   ├── prompts/                    # 提示符管理（新增）
+│   │   ├── __init__.py
+│   │   └── prompt_provider.py      # IPromptProvider
+│   ├── registry/                   # 命令注册表
+│   │   ├── __init__.py
+│   │   └── command_registry.py     # CommandRegistry
+│   ├── resolvers/                  # 名称解析器（新增）
+│   │   ├── __init__.py
+│   │   └── module_name_resolver.py # IModuleNameResolver
+│   └── state/                      # 状态管理
+│       ├── __init__.py
+│       └── state_manager.py        # StateManager
+├── state/                          # 状态定义
+│   ├── global_state.py             # GlobalState（使用连接上下文组合）
+│   ├── connection_context.py       # ConnectionContext 抽象
+│   └── module_state.py             # ModuleState 基类
+└── modules/                        # 内置模块
+    ├── core/                       # 核心命令
+    ├── ssh/                        # SSH 模块
+    └── database/                   # 数据库模块
 ```
+
+**15个子包职责说明**：
+
+| 子包 | 职责 | 关键组件 |
+|------|------|----------|
+| `base/` | 基类和抽象 | CommandModule |
+| `cli/` | CLI 相关 | PromptManager, StyleManager |
+| `completion/` | 自动补全 | AutoCompleter |
+| `configuration/` | 配置系统 | ConfigManager, Providers, Themes |
+| `decoration/` | 装饰器 | typed_command |
+| `error_handling/` | 错误处理 | ErrorHandlerChain, CLIException |
+| `exceptions/` | 异常定义 | CLIException |
+| `execution/` | 命令执行 | CommandExecutor |
+| `formatting/` | 格式化 | HelpFormatter |
+| `interfaces/` | Protocol 接口 | 7个 Protocol 接口 |
+| `loaders/` | 模块加载 | 4个加载组件 |
+| `prompts/` | 提示符管理 | PromptProvider |
+| `registry/` | 命令注册表 | CommandRegistry |
+| `resolvers/` | 名称解析 | ModuleNameResolver |
+| `state/` | 状态管理 | StateManager |
+
+**设计原则**：
+- ✅ **单一职责原则**：每个子包负责一个功能域
+- ✅ **接口隔离原则**：7个 Protocol 接口支持鸭子类型
+- ✅ **依赖倒置原则**：高层依赖接口而非具体实现
 
 ## 📋 代码规范
 
@@ -176,6 +261,215 @@ class MyModule(CommandModule):
     def initialize(self, state_manager: "StateManager") -> None:
         pass
 ```
+
+---
+
+### Protocol 接口使用规范（2026-01-03 新增）
+
+#### 何时使用 Protocol？
+
+PTK_REPL 使用 **Protocol 接口**（而非 ABC）来支持鸭子类型和依赖注入。
+
+**使用场景**：
+- ✅ 需要鸭子类型支持（无需显式继承）
+- ✅ 有多个可能的实现类
+- ✅ 依赖注入场景
+- ✅ 第三方扩展
+
+**不使用场景**：
+- ❌ 只有一个实现类（使用具体类即可）
+- ❌ 需要强制继承（使用 ABC）
+
+#### Protocol vs ABC
+
+**Protocol（推荐）**：
+```python
+from typing import Protocol
+
+@runtime_checkable
+class ICliContext(Protocol):
+    """CLI 上下文接口（鸭子类型）。"""
+
+    def poutput(self, text: str) -> None: ...
+
+    def perror(self, text: str) -> None: ...
+
+# 无需显式继承
+class MyCLI:
+    def poutput(self, text: str) -> None:
+        print(text)
+
+    def perror(self, text: str) -> None:
+        print(f"Error: {text}", file=sys.stderr)
+
+# 类型检查
+cli: ICliContext = MyCLI()  # ✅ 通过（鸭子类型）
+```
+
+**ABC（不推荐）**：
+```python
+from abc import ABC, abstractmethod
+
+class ICliContext(ABC):
+    """CLI 上下文接口（必须显式继承）。"""
+
+    @abstractmethod
+    def poutput(self, text: str) -> None: ...
+
+    @abstractmethod
+    def perror(self, text: str) -> None: ...
+
+# 必须显式继承
+class MyCLI(ICliContext):  # ⚠️ 强制继承
+    def poutput(self, text: str) -> None:
+        print(text)
+
+    def perror(self, text: str) -> None:
+        print(f"Error: {text}", file=sys.stderr)
+
+# 第三方实现无法通过类型检查
+class ThirdPartyCLI:  # ❌ 未继承，类型检查失败
+    def poutput(self, text: str) -> None:
+        print(text)
+```
+
+#### 定义 Protocol 接口
+
+**基本规范**：
+```python
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class IMyInterface(Protocol):
+    """接口简要描述（单行）。"""
+
+    def method_name(self, param: str) -> None:
+        """方法描述。
+
+        Args:
+            param: 参数描述
+        """
+        ...
+```
+
+**示例**：定义模块加载器接口
+```python
+@runtime_checkable
+class IModuleLoader(Protocol):
+    """模块加载器接口。
+
+    支持懒加载和即时加载。
+    """
+
+    def load(self, module_name: str) -> CommandModule | None:
+        """加载模块。
+
+        Args:
+            module_name: 模块名称
+
+        Returns:
+            模块实例，如果加载失败返回 None
+        """
+        ...
+
+    def is_loaded(self, module_name: str) -> bool:
+        """检查模块是否已加载。
+
+        Args:
+            module_name: 模块名称
+
+        Returns:
+            是否已加载
+        """
+        ...
+```
+
+#### Protocol 接口最佳实践
+
+1. **使用 `@runtime_checkable` 装饰器**
+   - 支持运行时类型检查（`isinstance()`）
+   - 在 typed_command 等需要运行时检查的场景中必需
+
+2. **接口隔离原则**
+   - 每个接口只包含相关的方法
+   - 避免臃肿的"万能接口"
+
+   **示例**：
+   ```python
+   # ✅ 好的设计（接口隔离）
+   @runtime_checkable
+   class IModuleLoader(Protocol):
+       def load(self, name: str) -> CommandModule | None: ...
+
+   @runtime_checkable
+   class IModuleRegister(Protocol):
+       def register(self, module: CommandModule) -> None: ...
+
+   # ❌ 不好的设计（臃肿的接口）
+   @runtime_checkable
+   class IModuleManager(Protocol):
+       def load(self, name: str) -> CommandModule | None: ...
+       def register(self, module: CommandModule) -> None: ...
+       def discover(self) -> list[str]: ...
+       def resolve(self, name: str) -> str: ...
+   ```
+
+3. **在函数参数中使用 Protocol**
+   - 支持多种实现
+   - 依赖注入友好
+
+   **示例**：
+   ```python
+   def process_command(
+       cli: ICliContext,  # Protocol 接口
+       command: str
+   ) -> None:
+       """处理命令（支持任何 ICliContext 实现）。"""
+       cli.poutput(f"执行命令: {command}")
+
+   # 可以传入任何符合接口的对象
+   process_command(MyCLI(), "status")
+   process_command(ThirdPartyCLI(), "status")
+   ```
+
+4. **Protocol 属性支持**
+   - Protocol 可以定义属性
+   - 实现类必须提供同名属性
+
+   **示例**：
+   ```python
+   @runtime_checkable
+   class ICliContext(Protocol):
+       state: StateManager  # 属性
+       registry: CommandRegistry  # 属性
+
+       def poutput(self, text: str) -> None: ...
+
+   class PromptToolkitCLI:
+       state: StateManager
+       registry: CommandRegistry
+
+       def poutput(self, text: str) -> None:
+           print(text)
+   ```
+
+#### 项目中的 7 个 Protocol 接口
+
+PTK_REPL 定义了 7 个核心 Protocol 接口（位于 `src/ptk_repl/core/interfaces/`）：
+
+| 接口 | 文件 | 用途 |
+|------|------|------|
+| `ICliContext` | `cli_context.py` | CLI 上下文（输出、状态） |
+| `IModuleLoader` | `module_loader.py` | 模块加载器 |
+| `IModuleRegister` | `module_register.py` | 模块注册器 |
+| `IModuleDiscoverer` | `module_discoverer.py` | 模块发现器 |
+| `ICommandResolver` | `command_resolver.py` | 命令名称解析器 |
+| `IPromptProvider` | `prompt_provider.py` | 提示符提供者 |
+| `IRegistry` | `registry.py` | 命令注册表 |
+
+**详细文档**：[接口设计](../design/interface-design.md)
+
+---
 
 ## 🔍 代码质量工具
 
@@ -423,4 +717,4 @@ uv run ruff format src/
 
 ---
 
-**最后更新**: 2025-12-28
+**最后更新**: 2026-01-03

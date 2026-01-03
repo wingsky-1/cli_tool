@@ -4,12 +4,26 @@ PTK_REPL 核心 API 完整参考文档。
 
 ## 📦 目录
 
+- [Protocol 接口](#protocol-接口) (2026-01-03 新增)
+  - [ICliContext](#iclicontext)
+  - [IModuleLoader](#imoduleloader)
+  - [IModuleRegister](#imoduleregister)
+  - [IModuleDiscoverer](#imodulediscoverer)
+  - [ICommandResolver](#icommandresolver)
+  - [IPromptProvider](#ipromptprovider)
+  - [IRegistry](#iregistry)
 - [核心组件](#核心组件)
   - [PromptToolkitCLI](#prompttoolkitcli)
   - [CommandRegistry](#commandregistry)
   - [StateManager](#statemanager)
   - [ConfigManager](#configmanager)
   - [AutoCompleter](#autocompleter)
+- [模块加载系统](#模块加载系统) (2026-01-03 重构)
+  - [LazyModuleTracker](#lazymoduletracker)
+  - [ModuleDiscoveryService](#modulediscoveryservice)
+  - [UnifiedModuleLoader](#unifiedmoduleloader)
+  - [ModuleRegister](#moduleregister)
+  - [ModuleLifecycleManager](#modulelifecyclemanager)
 - [基类和接口](#基类和接口)
   - [CommandModule](#commandmodule)
   - [ModuleState](#modulestate)
@@ -18,7 +32,246 @@ PTK_REPL 核心 API 完整参考文档。
 - [工具类](#工具类)
   - [HelpFormatter](#helpformatter)
 
-## 核心组件
+## Protocol 接口
+
+PTK_REPL 使用 **Protocol 接口**支持鸭子类型和依赖注入。所有接口都使用 `@runtime_checkable` 装饰器，支持运行时类型检查。
+
+### ICliContext
+
+**文件**: [`src/ptk_repl/core/interfaces/cli_context.py`](../src/ptk_repl/core/interfaces/cli_context.py)
+
+**用途**: CLI 上下文接口，提供统一的输出和状态管理接口。
+
+#### 方法
+
+##### `poutput(text: str) -> None`
+
+输出普通消息。
+
+**参数**:
+- `text` (str): 要输出的消息
+
+**示例**:
+```python
+@runtime_checkable
+class ICliContext(Protocol):
+    def poutput(self, text: str) -> None: ...
+
+class MyCLI:
+    def poutput(self, text: str) -> None:
+        print(text)
+
+# 类型检查
+cli: ICliContext = MyCLI()
+cli.poutput("Hello")
+```
+
+---
+
+##### `perror(text: str) -> None`
+
+输出错误消息。
+
+**参数**:
+- `text` (str): 错误消息
+
+---
+
+#### 属性
+
+- `state: StateManager` - 状态管理器
+- `registry: CommandRegistry` - 命令注册表
+
+---
+
+### IModuleLoader
+
+**文件**: [`src/ptk_repl/core/interfaces/module_loader.py`](../src/ptk_repl/core/interfaces/module_loader.py)
+
+**用途**: 模块加载器接口，支持懒加载和即时加载。
+
+#### 方法
+
+##### `load(module_name: str) -> CommandModule | None`
+
+加载模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 模块实例，如果加载失败返回 None
+
+---
+
+##### `is_loaded(module_name: str) -> bool`
+
+检查模块是否已加载。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 是否已加载
+
+---
+
+##### `ensure_module_loaded(module_name: str) -> None`
+
+确保模块已加载（懒加载）。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+---
+
+#### 属性
+
+- `loaded_modules: dict[str, CommandModule]` - 已加载的模块字典
+- `lazy_modules: dict[str, type]` - 懒加载模块字典
+
+---
+
+### IModuleRegister
+
+**文件**: [`src/ptk_repl/core/interfaces/module_register.py`](../src/ptk_repl/core/interfaces/module_register.py)
+
+**用途**: 模块注册器接口。
+
+#### 方法
+
+##### `register(module: CommandModule) -> None`
+
+注册模块。
+
+**参数**:
+- `module` (CommandModule): 模块实例
+
+---
+
+##### `is_registered(module_name: str) -> bool`
+
+检查模块是否已注册。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 是否已注册
+
+---
+
+##### `get_module(module_name: str) -> CommandModule | None`
+
+获取已注册的模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 模块实例，如果不存在返回 None
+
+---
+
+### IModuleDiscoverer
+
+**文件**: [`src/ptk_repl/core/interfaces/module_discoverer.py`](../src/ptk_repl/core/interfaces/module_discoverer.py)
+
+**用途**: 模块发现器接口。
+
+#### 方法
+
+##### `discover_modules() -> list[str]`
+
+发现所有可用模块。
+
+**返回**: 模块名称列表
+
+---
+
+##### `preload_all(tracker, resolver, exclude) -> None`
+
+预加载所有模块到追踪器。
+
+**参数**:
+- `tracker` (LazyModuleTracker): 懒加载追踪器
+- `resolver` (IModuleNameResolver): 名称解析器
+- `exclude` (list[str]): 要排除的模块列表
+
+---
+
+### ICommandResolver
+
+**文件**: [`src/ptk_repl/core/interfaces/command_resolver.py`](../src/ptk_repl/core/interfaces/command_resolver.py)
+
+**用途**: 命令名称解析器接口。
+
+#### 方法
+
+##### `resolve(module_name: str) -> str`
+
+解析模块名称为类名。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 类名
+
+---
+
+### IPromptProvider
+
+**文件**: [`src/ptk_repl/core/interfaces/prompt_provider.py`](../src/ptk_repl/core/interfaces/prompt_provider.py)
+
+**用途**: 提示符提供者接口。
+
+#### 方法
+
+##### `get_prompt() -> str`
+
+获取提示符字符串。
+
+**返回**: 提示符字符串
+
+---
+
+### IRegistry
+
+**文件**: [`src/ptk_repl/core/interfaces/registry.py`](../src/ptk_repl/core/interfaces/registry.py)
+
+**用途**: 命令注册表接口。
+
+#### 方法
+
+##### `register_command(module_name, command_name, handler, aliases) -> None`
+
+注册命令。
+
+**参数**:
+- `module_name` (str): 模块名称
+- `command_name` (str): 命令名称
+- `handler` (Callable): 命令处理函数
+- `aliases` (list[str] | None): 命令别名
+
+---
+
+##### `get_command_info(command_path: str) -> tuple | None`
+
+获取命令信息。
+
+**参数**:
+- `command_path` (str): 命令路径（如 "ssh connect"）
+
+**返回**: (模块名, 命令名, 处理器) 元组，如果不存在返回 None
+
+---
+
+##### `get_module(module_name: str) -> CommandModule | None`
+
+获取模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 模块实例，如果不存在返回 None
+
+---
 
 ### PromptToolkitCLI
 
@@ -269,6 +522,443 @@ from prompt_toolkit import PromptSession
 session = PromptSession(
     completer=cli.auto_completer.to_prompt_toolkit_completer()
 )
+```
+
+---
+
+## 模块加载系统（2026-01-03 重构）
+
+### 设计概述
+
+模块加载系统已从旧的 ModuleLoader（183行）重构为4个职责单一的组件（454行），符合**单一职责原则**。
+
+**架构图**：
+```
+┌─────────────────────────────────────────────────────────────┐
+│           ModuleLifecycleManager (门面模式)                  │
+│                  core/loaders/module_lifecycle_manager.py   │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ↓                   ↓                   ↓
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│  Discovery    │  │    Loader     │  │   Register    │
+│  Service      │  │               │  │               │
+│ (发现模块)     │  │ (加载模块)     │  │ (注册模块)     │
+└───────┬───────┘  └───────┬───────┘  └───────┬───────┘
+        │                  │                  │
+        └──────────────────┼──────────────────┘
+                           ↓
+                  ┌───────────────┐
+                  │    Tracker     │
+                  │  (追踪状态)     │
+                  └───────────────┘
+```
+
+---
+
+### LazyModuleTracker
+
+**文件**: [`src/ptk_repl/core/loaders/lazy_module_tracker.py`](../src/ptk_repl/core/loaders/lazy_module_tracker.py)
+
+**职责**: 追踪模块加载状态和别名映射（O(1) 查找）。
+
+#### 初始化
+
+```python
+from ptk_repl.core.loaders.lazy_module_tracker import LazyModuleTracker
+
+tracker = LazyModuleTracker()
+```
+
+#### 主要方法
+
+##### `add_lazy_module(name: str, cls: type, aliases: list[str] | None = None) -> None`
+
+添加懒加载模块。
+
+**参数**:
+- `name` (str): 模块名称
+- `cls` (type): 模块类
+- `aliases` (list[str] | None): 模块别名列表
+
+---
+
+##### `mark_as_loaded(name: str) -> None`
+
+标记模块为已加载。
+
+**参数**:
+- `name` (str): 模块名称
+
+---
+
+##### `is_loaded(name: str) -> bool`
+
+检查模块是否已加载。
+
+**参数**:
+- `name` (str): 模块名称
+
+**返回**: 是否已加载
+
+---
+
+##### `find_by_alias(alias: str) -> str | None`
+
+通过别名查找模块名（O(1) 复杂度）。
+
+**参数**:
+- `alias` (str): 别名
+
+**返回**: 模块名，如果不存在返回 None
+
+---
+
+#### 属性
+
+- `lazy_modules: dict[str, type]` - 懒加载模块字典（只读）
+- `loaded_modules: set[str]` - 已加载模块集合（只读）
+
+---
+
+### ModuleDiscoveryService
+
+**文件**: [`src/ptk_repl/core/loaders/module_discovery_service.py`](../src/ptk_repl/core/loaders/module_discovery_service.py)
+
+**职责**: 自动扫描 `modules/` 目录，发现所有可用模块。
+
+#### 初始化
+
+```python
+from pathlib import Path
+from ptk_repl.core.loaders.module_discovery_service import ModuleDiscoveryService
+
+discovery_service = ModuleDiscoveryService(
+    modules_path=Path("src/ptk_repl/modules")
+)
+```
+
+**参数**:
+- `modules_path` (Path): 模块目录路径
+
+#### 主要方法
+
+##### `discover_modules() -> list[str]`
+
+发现所有可用模块。
+
+**返回**: 模块名称列表
+
+**示例**:
+```python
+modules = discovery_service.discover_modules()
+# 返回: ["core", "ssh", "database"]
+```
+
+---
+
+##### `preload_all(tracker, resolver, exclude) -> None`
+
+预加载所有模块到追踪器。
+
+**参数**:
+- `tracker` (LazyModuleTracker): 懒加载追踪器
+- `resolver` (IModuleNameResolver): 名称解析器
+- `exclude` (list[str]): 要排除的模块列表
+
+**示例**:
+```python
+discovery_service.preload_all(
+    tracker=tracker,
+    resolver=name_resolver,
+    exclude=["core"]
+)
+```
+
+---
+
+### UnifiedModuleLoader
+
+**文件**: [`src/ptk_repl/core/loaders/unified_module_loader.py`](../src/ptk_repl/core/loaders/unified_module_loader.py)
+
+**职责**: 统一的模块加载逻辑，支持懒加载和即时加载。
+
+#### 初始化
+
+```python
+from ptk_repl.core.loaders.unified_module_loader import UnifiedModuleLoader
+
+loader = UnifiedModuleLoader(
+    name_resolver=name_resolver,
+    lazy_tracker=tracker,
+    module_register=module_register,
+    post_load_callbacks=[callback1, callback2]
+)
+```
+
+**参数**:
+- `name_resolver` (IModuleNameResolver): 模块名称解析器
+- `lazy_tracker` (LazyModuleTracker): 懒加载追踪器
+- `module_register` (IModuleRegister): 模块注册器
+- `post_load_callbacks` (list[Callable]): 加载后回调列表
+
+#### 主要方法
+
+##### `load(module_name: str) -> CommandModule | None`
+
+加载模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 模块实例，如果加载失败返回 None
+
+**工作流程**:
+1. 检查是否已加载
+2. 从懒加载列表获取模块类
+3. 动态导入模块（如需要）
+4. 创建模块实例
+5. 注册到注册表
+6. 标记为已加载
+7. 执行加载后回调
+
+**示例**:
+```python
+module = loader.load("ssh")
+if module:
+    print(f"成功加载 {module.name}")
+```
+
+---
+
+##### `is_loaded(module_name: str) -> bool`
+
+检查模块是否已加载。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 是否已加载
+
+---
+
+##### `ensure_module_loaded(module_name: str) -> None`
+
+确保模块已加载（懒加载）。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**示例**:
+```python
+# 确保模块已加载，如果未加载则自动加载
+loader.ensure_module_loaded("ssh")
+```
+
+---
+
+#### 属性
+
+- `loaded_modules: dict[str, CommandModule]` - 已加载的模块字典
+- `lazy_modules: dict[str, type]` - 懒加载模块字典
+
+---
+
+### ModuleRegister
+
+**文件**: [`src/ptk_repl/core/loaders/module_register.py`](../src/ptk_repl/core/loaders/module_register.py)
+
+**职责**: 注册模块到注册表，调用模块初始化方法，错误清理。
+
+#### 初始化
+
+```python
+from ptk_repl.core.loaders.module_register import ModuleRegister
+
+register = ModuleRegister(
+    command_registry=registry,
+    state_manager=state_manager
+)
+```
+
+**参数**:
+- `command_registry` (IRegistry): 命令注册表
+- `state_manager` (StateManager): 状态管理器
+
+#### 主要方法
+
+##### `register(module: CommandModule) -> None`
+
+注册模块。
+
+**参数**:
+- `module` (CommandModule): 模块实例
+
+**工作流程**:
+1. 调用 `module.register_commands(cli)` 注册命令
+2. 调用 `module.initialize(state_manager)` 初始化模块
+3. 如果失败，清理已注册的命令
+
+**示例**:
+```python
+try:
+    register.register(module)
+    print(f"模块 {module.name} 注册成功")
+except Exception as e:
+    print(f"注册失败: {e}")
+```
+
+---
+
+##### `is_registered(module_name: str) -> bool`
+
+检查模块是否已注册。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 是否已注册
+
+---
+
+##### `get_module(module_name: str) -> CommandModule | None`
+
+获取已注册的模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**返回**: 模块实例，如果不存在返回 None
+
+---
+
+### ModuleLifecycleManager
+
+**文件**: [`src/ptk_repl/core/loaders/module_lifecycle_manager.py`](../src/ptk_repl/core/loaders/module_lifecycle_manager.py)
+
+**职责**: 协调发现、加载、注册等组件（门面模式），提供统一的模块管理接口。
+
+#### 初始化
+
+```python
+from pathlib import Path
+from ptk_repl.core.loaders.module_lifecycle_manager import ModuleLifecycleManager
+
+lifecycle_manager = ModuleLifecycleManager(
+    modules_path=Path("src/ptk_repl/modules"),
+    name_resolver=name_resolver,
+    module_register=module_register,
+    config=config,
+    auto_completer=auto_completer,
+    register_commands_callback=lambda m: m.register_commands(cli),
+    error_callback=lambda msg: cli.perror(msg)
+)
+```
+
+**参数**:
+- `modules_path` (Path): 模块目录路径
+- `name_resolver` (IModuleNameResolver): 模块名称解析器
+- `module_register` (IModuleRegister): 模块注册器
+- `config` (ConfigManager): 配置管理器
+- `auto_completer` (AutoCompleter): 自动补全器
+- `register_commands_callback` (Callable): 命令注册回调
+- `error_callback` (Callable): 错误回调
+
+#### 主要方法
+
+##### `load_modules() -> None`
+
+加载所有模块（主入口）。
+
+**执行流程**:
+1. 自动发现所有模块
+2. 预加载到懒加载追踪器
+3. 立即加载 core 模块
+4. 根据配置预加载其他模块
+
+**示例**:
+```python
+# 在 CLI 启动时调用
+lifecycle_manager.load_modules()
+```
+
+---
+
+##### `load_module_immediately(module_name: str) -> None`
+
+立即加载模块。
+
+**参数**:
+- `module_name` (str): 模块名称
+
+**示例**:
+```python
+# 预加载配置中的模块
+for module_name in config.get("core.preload_modules", []):
+    lifecycle_manager.load_module_immediately(module_name)
+```
+
+---
+
+#### IModuleLoader 接口实现
+
+ModuleLifecycleManager 实现了 IModuleLoader 接口，所有方法委托给 UnifiedModuleLoader：
+
+- `load(module_name) -> CommandModule | None`
+- `is_loaded(module_name) -> bool`
+- `ensure_module_loaded(module_name) -> None`
+- `loaded_modules: dict[str, CommandModule]`
+- `lazy_modules: dict[str, type]`
+
+---
+
+### 使用示例
+
+#### 完整的模块加载流程
+
+```python
+from pathlib import Path
+from ptk_repl.core.loaders.module_lifecycle_manager import ModuleLifecycleManager
+
+# 1. 创建生命周期管理器
+lifecycle_manager = ModuleLifecycleManager(
+    modules_path=Path("src/ptk_repl/modules"),
+    name_resolver=name_resolver,
+    module_register=module_register,
+    config=config,
+    auto_completer=auto_completer,
+    register_commands_callback=lambda m: m.register_commands(cli),
+    error_callback=lambda msg: cli.perror(msg)
+)
+
+# 2. 加载所有模块
+lifecycle_manager.load_modules()
+
+# 3. 懒加载单个模块
+lifecycle_manager.ensure_module_loaded("ssh")
+
+# 4. 检查模块是否已加载
+if lifecycle_manager.is_loaded("ssh"):
+    print("SSH 模块已加载")
+```
+
+#### 直接使用 UnifiedModuleLoader
+
+```python
+from ptk_repl.core.loaders.unified_module_loader import UnifiedModuleLoader
+
+loader = UnifiedModuleLoader(
+    name_resolver=name_resolver,
+    lazy_tracker=tracker,
+    module_register=module_register,
+    post_load_callbacks=[]
+)
+
+# 加载模块
+module = loader.load("database")
+if module:
+    print(f"成功加载: {module.name}")
 ```
 
 ---
@@ -646,4 +1336,4 @@ host = cast(str, module.host)  # module.host 可能是 Any
 
 ---
 
-**最后更新**: 2025-12-28
+**最后更新**: 2026-01-03
