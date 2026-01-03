@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ptk_repl.cli import PromptToolkitCLI
-    from ptk_repl.core.state_manager import StateManager
+    from ptk_repl.core.state.state_manager import StateManager
 
 
 class CommandModule(ABC):

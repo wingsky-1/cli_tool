@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from ptk_repl.core.base import CommandModule
-from ptk_repl.core.decorators import typed_command
+from ptk_repl.core.decoration.typed_command import typed_command
 
 if TYPE_CHECKING:
     from ptk_repl.cli import PromptToolkitCLI
-    from ptk_repl.core.state_manager import StateManager
+    from ptk_repl.core.state.state_manager import StateManager
 
 
 class DisconnectArgs(BaseModel):

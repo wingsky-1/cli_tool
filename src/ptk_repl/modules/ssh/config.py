@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from ptk_repl.core.config_manager import ConfigManager
+    from ptk_repl.core.configuration.config_manager import ConfigManager
 
 
 class LogConfig(BaseModel):

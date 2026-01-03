@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from ptk_repl.core.config import (
+from ptk_repl.core.configuration.providers import (
     CompositeConfigProvider,
     EnvConfigProvider,
     IConfigProvider,

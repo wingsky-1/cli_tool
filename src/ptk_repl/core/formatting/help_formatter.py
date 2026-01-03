@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from colorama import init
 
-from ptk_repl.core.config.theme import ColorScheme
+from ptk_repl.core.configuration.themes.color_theme import ColorScheme
 
 # 初始化 colorama
 init(autoreset=True)

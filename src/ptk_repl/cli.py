@@ -9,21 +9,18 @@ from prompt_toolkit.completion import NestedCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.shortcuts import CompleteStyle
 
-from ptk_repl.core.cli import (
-    CommandExecutor,
-    ModuleLoader,
-    PromptManager,
-    StyleManager,
-)
-from ptk_repl.core.completer import AutoCompleter
-from ptk_repl.core.config_manager import ConfigManager
+from ptk_repl.core.cli import ModuleLoader, StyleManager
+from ptk_repl.core.completion import AutoCompleter
+from ptk_repl.core.configuration import ConfigManager
+from ptk_repl.core.execution import CommandExecutor
 from ptk_repl.core.loaders import (
     ModuleDiscoverer,
     ModuleManager,
     ModuleRegister,
 )
+from ptk_repl.core.prompts import PromptManager
 from ptk_repl.core.registry import CommandRegistry
-from ptk_repl.core.state_manager import StateManager
+from ptk_repl.core.state import StateManager
 
 if TYPE_CHECKING:
     from ptk_repl.core.interfaces import ICliContext  # noqa: F401 (类型检查用)

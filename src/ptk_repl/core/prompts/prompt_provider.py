@@ -1,6 +1,6 @@
 """CLI 提示符管理器。"""
 
-from ptk_repl.core.state_manager import StateManager
+from ptk_repl.core.state.state_manager import StateManager
 
 
 class PromptManager:

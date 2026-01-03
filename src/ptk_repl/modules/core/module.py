@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ptk_repl.core.base import CommandModule
-from ptk_repl.core.help_formatter import HelpFormatter
+from ptk_repl.core.formatting.help_formatter import HelpFormatter
 
 if TYPE_CHECKING:
     from ptk_repl.cli import PromptToolkitCLI
@@ -68,7 +68,7 @@ class CoreModule(CommandModule):
                 cli.poutput(f"  • {module.name} (v{version}): {description}")
 
             # 显示待加载的模块
-            lazy_modules = cli._module_loader.lazy_modules
+            lazy_modules = cli._module_manager.lazy_modules
             if lazy_modules:
                 cli.poutput("\n待加载（延迟）:")
                 for module_name in lazy_modules:

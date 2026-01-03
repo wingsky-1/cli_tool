@@ -7,7 +7,7 @@
 from typing import Protocol, runtime_checkable
 
 from ptk_repl.core.registry import CommandRegistry
-from ptk_repl.core.state_manager import StateManager
+from ptk_repl.core.state.state_manager import StateManager
 
 
 @runtime_checkable

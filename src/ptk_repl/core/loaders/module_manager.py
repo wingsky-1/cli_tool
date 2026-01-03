@@ -3,11 +3,11 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
-from ptk_repl.core.config_manager import ConfigManager
+from ptk_repl.core.configuration.config_manager import ConfigManager
 
 if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
-    from ptk_repl.core.completer import AutoCompleter
+    from ptk_repl.core.completion.auto_completer import AutoCompleter
 
 
 class ModuleManager:

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from ptk_repl.core.completer import AutoCompleter
+    from ptk_repl.core.completion.auto_completer import AutoCompleter
 
 
 class CommandRegistry:

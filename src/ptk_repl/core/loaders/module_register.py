@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from ptk_repl.core.registry import CommandRegistry
-from ptk_repl.core.state_manager import StateManager
+from ptk_repl.core.state.state_manager import StateManager
 
 if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
