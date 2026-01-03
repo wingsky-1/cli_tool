@@ -17,6 +17,11 @@ from ptk_repl.core.cli import (
 )
 from ptk_repl.core.completer import AutoCompleter
 from ptk_repl.core.config_manager import ConfigManager
+from ptk_repl.core.loaders import (
+    ModuleDiscoverer,
+    ModuleManager,
+    ModuleRegister,
+)
 from ptk_repl.core.registry import CommandRegistry
 from ptk_repl.core.state_manager import StateManager
 
@@ -67,8 +72,8 @@ class PromptToolkitCLI:
         self.registry.set_completer(self.auto_completer)
         self.session.completer = self.auto_completer.to_prompt_toolkit_completer()
 
-        # 初始化模块加载器
-        self._module_loader = ModuleLoader(
+        # 初始化旧的 ModuleLoader（提供完整的懒加载支持）
+        legacy_loader = ModuleLoader(
             registry=self.registry,
             state_manager=self.state,
             config=self.config,
@@ -77,10 +82,28 @@ class PromptToolkitCLI:
             error_callback=self.perror,
         )
 
-        # 初始化命令执行器
+        # 初始化新的模块加载组件
+        discoverer = ModuleDiscoverer(modules_path=Path(__file__).parent / "modules")
+        # 暂时使用 legacy_loader 作为 loader（新的 ModuleLoader 功能不完整）
+        loader = legacy_loader
+        register = ModuleRegister(self.registry, self.state)
+
+        # 初始化模块管理器（门面 + 适配器）
+        self._module_manager = ModuleManager(
+            discoverer=discoverer,
+            loader=loader,
+            register=register,
+            config=self.config,
+            auto_completer=self.auto_completer,
+            register_commands_callback=self.register_module_commands,
+            error_callback=self.perror,
+            legacy_loader=legacy_loader,
+        )
+
+        # 初始化命令执行器（使用 IModuleLoader 接口）
         self._command_executor = CommandExecutor(
             registry=self.registry,
-            module_loader=self._module_loader,
+            module_loader=self._module_manager,  # ModuleManager 实现 IModuleLoader
             cli_context=self,  # PromptToolkitCLI 实现 ICliContext
         )
 
@@ -88,7 +111,7 @@ class PromptToolkitCLI:
         self._current_module: str | None = None
 
         # 加载核心模块
-        self._module_loader.load_modules()
+        self._module_manager.load_modules()
 
     def run(self) -> None:
         """运行 REPL 主循环。"""
