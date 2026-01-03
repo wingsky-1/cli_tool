@@ -294,14 +294,22 @@ def mycommand(args: str) -> None:
 
 ### Q: 如何修改提示符？
 
-A: 编辑 `src/ptk_repl/core/cli/prompt_manager.py`：
+A: 编辑 `src/ptk_repl/core/prompts/prompt_provider.py`：
 
 ```python
 def get_prompt(self) -> str:
-    gs = self.state.global_state
+    """动态生成提示符。"""
+    gs = self.state_manager.global_state
     if gs.connected:
-        return f"({gs.connection_type}) > "
-    return "> "
+        ctx = gs.get_connection_context()
+        if ctx and ctx.is_connected():
+            # 使用多态方法，无需 isinstance 检查
+            suffix = ctx.get_prompt_suffix()
+            return f"(ptk:{suffix}) > "
+        elif gs.current_host:
+            # 兼容旧版本：显示主机和端口
+            return f"(ptk:{gs.current_host}:{gs.current_port}) > "
+    return "(ptk) > "
 ```
 
 ### Q: 如何禁用某个模块？
