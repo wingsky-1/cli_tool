@@ -5,5 +5,19 @@
 """
 
 from ptk_repl.core.interfaces.cli_context import ICliContext
+from ptk_repl.core.interfaces.command_resolver import ICommandResolver
+from ptk_repl.core.interfaces.module_discoverer import IModuleDiscoverer
+from ptk_repl.core.interfaces.module_loader import IModuleLoader
+from ptk_repl.core.interfaces.module_register import IModuleRegister
+from ptk_repl.core.interfaces.prompt_provider import IPromptProvider
+from ptk_repl.core.interfaces.registry import IRegistry
 
-__all__ = ["ICliContext"]
+__all__ = [
+    "ICliContext",
+    "ICommandResolver",
+    "IModuleDiscoverer",
+    "IModuleLoader",
+    "IModuleRegister",
+    "IPromptProvider",
+    "IRegistry",
+]
