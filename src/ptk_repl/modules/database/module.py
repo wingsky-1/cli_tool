@@ -66,10 +66,17 @@ class DatabaseModule(CommandModule):
         @typed_command(ConnectArgs)
         def connect(args: ConnectArgs) -> None:
             """连接到数据库。"""
+            from ptk_repl.state.connection_context import DatabaseConnectionContext
+
             gs = cli.state.global_state
             gs.connected = True
             gs.current_host = args.host
             gs.current_port = args.port
+
+            # 设置数据库连接上下文
+            db_ctx = DatabaseConnectionContext()
+            db_ctx.set_database(f"db_{args.host}", args.host, args.port)
+            gs.set_connection_context(db_ctx)
 
             if self.state:
                 self.state.active_database = f"db_{args.host}"
@@ -82,9 +89,7 @@ class DatabaseModule(CommandModule):
         def disconnect(args: str) -> None:
             """断开连接。"""
             gs = cli.state.global_state
-            gs.connected = False
-            gs.current_host = None
-            gs.current_port = None
+            gs.clear_connection_context()
 
             if self.state:
                 self.state.reset()
