@@ -152,6 +152,15 @@ class CompositeConfigProvider:
         """
         self._providers = providers
 
+    @property
+    def providers(self) -> list[IConfigProvider]:
+        """获取配置提供者列表。
+
+        Returns:
+            提供者列表
+        """
+        return self._providers
+
     def get(self, key: str, default: Any = None) -> Any:
         """获取配置值。
 

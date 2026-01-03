@@ -68,9 +68,10 @@ class CoreModule(CommandModule):
                 cli.poutput(f"  • {module.name} (v{version}): {description}")
 
             # 显示待加载的模块
-            if cli._module_loader._lazy_modules:
+            lazy_modules = cli._module_loader.lazy_modules
+            if lazy_modules:
                 cli.poutput("\n待加载（延迟）:")
-                for module_name in cli._module_loader._lazy_modules:
+                for module_name in lazy_modules:
                     cli.poutput(f"  • {module_name} (首次使用时加载)")
 
         @cli.command(name="help")

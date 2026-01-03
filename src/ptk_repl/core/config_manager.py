@@ -63,6 +63,15 @@ class ConfigManager:
             # 组合提供者
             self._provider = CompositeConfigProvider(providers)
 
+    @property
+    def provider(self) -> IConfigProvider:
+        """获取配置提供者。
+
+        Returns:
+            配置提供者实例
+        """
+        return self._provider
+
     def _find_config(self) -> str | None:
         """查找配置文件。
 

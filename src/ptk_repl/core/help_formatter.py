@@ -10,7 +10,9 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
-from colorama import Fore, Style, init
+from colorama import init
+
+from ptk_repl.core.config.theme import ColorScheme
 
 # 初始化 colorama
 init(autoreset=True)
@@ -29,15 +31,16 @@ class HelpFormatter:
     - 颜色渲染
     """
 
-    def __init__(self, cli: "PromptToolkitCLI") -> None:
+    def __init__(self, cli: "PromptToolkitCLI", color_scheme: ColorScheme | None = None) -> None:
         """初始化帮助格式化器。
 
         Args:
             cli: PromptToolkitCLI 实例
+            color_scheme: 颜色方案（可选，默认使用默认方案）
         """
-
         self.cli = cli
         self.registry = cli.registry
+        self.color_scheme = color_scheme or ColorScheme.default()
 
     def extract_command_description(self, handler: Callable) -> str:
         """提取命令描述。
@@ -395,22 +398,7 @@ class HelpFormatter:
         Returns:
             带颜色代码的文本
         """
-        color_map = {
-            "title": Fore.LIGHTCYAN_EX + Style.BRIGHT,  # 标题：青色
-            "separator": Fore.LIGHTBLUE_EX,  # 分隔线：蓝色
-            "section": Fore.LIGHTMAGENTA_EX + Style.BRIGHT,  # 小节标题：品红色
-            "module": Fore.LIGHTGREEN_EX + Style.BRIGHT,  # 模块名：绿色
-            "command": Fore.LIGHTWHITE_EX,  # 命令名：白色
-            "alias": Fore.LIGHTYELLOW_EX,  # 别名：黄色
-            "description": Fore.LIGHTWHITE_EX,  # 描述：白色
-            "param": Fore.LIGHTMAGENTA_EX,  # 参数：品红色
-            "example": Fore.LIGHTBLUE_EX,  # 示例：蓝色
-            "label": Fore.LIGHTCYAN_EX + Style.BRIGHT,  # 标签：青色
-            "error": Fore.LIGHTRED_EX + Style.BRIGHT,  # 错误：红色
-        }
-
-        color = color_map.get(color_type, "")
-        return f"{color}{text}{Style.RESET_ALL}"
+        return self.color_scheme.color_text(text, color_type)
 
     def _error(self, text: str) -> str:
         """生成错误消息。
