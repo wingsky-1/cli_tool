@@ -1,10 +1,15 @@
 """命令注册表。"""
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from ptk_repl.core.base import CommandModule
     from ptk_repl.core.completion.auto_completer import AutoCompleter
+
+
+# 命令信息类型：(模块名, 命令名, 处理函数)
+CommandInfo = tuple[str, str, Callable]
 
 
 class CommandRegistry:
@@ -15,8 +20,8 @@ class CommandRegistry:
 
     def __init__(self) -> None:
         """初始化命令注册表。"""
-        self._modules: dict[str, Any] = {}
-        self._command_map: dict[str, tuple[str, str, Callable]] = {}
+        self._modules: dict[str, CommandModule] = {}
+        self._command_map: dict[str, CommandInfo] = {}
         self._alias_map: dict[str, str] = {}
         self._completer: AutoCompleter | None = None
 
@@ -28,7 +33,7 @@ class CommandRegistry:
         """
         self._completer = completer
 
-    def register_module(self, module: Any) -> None:
+    def register_module(self, module: "CommandModule") -> None:
         """注册模块。
 
         Args:
@@ -121,8 +126,8 @@ class CommandRegistry:
 
         # 2. 遍历所有模块，检查别名（动态读取）
         for module in self._modules.values():
-            if hasattr(module, "aliases") and short_name in module.aliases:
-                return cast(str, module.name)
+            if hasattr(module, "aliases") and module.aliases == short_name:
+                return module.name
 
         # 3. 前缀匹配（保留现有能力）
         for module_name in self._modules:
@@ -131,7 +136,7 @@ class CommandRegistry:
 
         return None
 
-    def get_module(self, name: str) -> Any:
+    def get_module(self, name: str) -> "CommandModule | None":
         """获取模块。
 
         Args:
@@ -157,7 +162,7 @@ class CommandRegistry:
                 result.append(cmd_name)
         return result
 
-    def list_modules(self) -> list[Any]:
+    def list_modules(self) -> list["CommandModule"]:
         """列出所有模块。
 
         Returns:
@@ -165,7 +170,7 @@ class CommandRegistry:
         """
         return list(self._modules.values())
 
-    def get_all_commands(self) -> dict[str, tuple[str, str, Callable]]:
+    def get_all_commands(self) -> dict[str, CommandInfo]:
         """获取所有命令的副本（避免直接访问私有成员）。
 
         Returns:

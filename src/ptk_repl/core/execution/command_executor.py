@@ -107,7 +107,7 @@ class CommandExecutor:
         for lazy_module_name, module_cls in self._module_loader.lazy_modules.items():
             # 创建临时模块实例来检查别名
             temp_module = module_cls()
-            if hasattr(temp_module, "aliases") and module_name in temp_module.aliases:
+            if hasattr(temp_module, "aliases") and temp_module.aliases == module_name:
                 # 找到了！触发懒加载
                 self._module_loader.ensure_module_loaded(lazy_module_name)
 

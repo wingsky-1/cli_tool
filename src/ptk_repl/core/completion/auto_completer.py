@@ -1,13 +1,13 @@
 """自动命令补全系统 - 从 CommandRegistry 自动发现命令。"""
 
 from collections.abc import Generator
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
+
+from ptk_repl.core.interfaces.registry import IRegistry
 
 if TYPE_CHECKING:
     from prompt_toolkit.completion import CompleteEvent, Completer, Completion
     from prompt_toolkit.document import Document
-
-    from ptk_repl.core.registry import CommandRegistry
 
 
 class AutoCompleter:
@@ -32,7 +32,7 @@ class AutoCompleter:
         ```
     """
 
-    def __init__(self, registry: "CommandRegistry") -> None:
+    def __init__(self, registry: IRegistry) -> None:
         """初始化自动补全器。
 
         Args:
@@ -157,14 +157,15 @@ class AutoCompleter:
         aliases = self._registry.get_all_aliases()
         for alias, _full_cmd in aliases.items():
             if " " in alias:  # 处理 "db connect" 这样的别名
-                parts = alias.split(maxsplit=1)
+                parts: list[str] = alias.split(maxsplit=1)
                 if len(parts) == 2:
-                    module, _cmd = parts
-                    if module not in completion_dict:
-                        completion_dict[module] = []
+                    alias_module: str = parts[0]
+                    alias_cmd: str = parts[1]
+                    if alias_module not in completion_dict:
+                        completion_dict[alias_module] = []
                     # 确保模块补全包含别名
-                    if _cmd not in completion_dict[module]:
-                        completion_dict[module].append(_cmd)
+                    if alias_cmd not in completion_dict[alias_module]:
+                        completion_dict[alias_module].append(alias_cmd)
 
         # 8. 参数补全（基于 Pydantic）
         param_completions = self._build_parameter_completions()
@@ -185,7 +186,7 @@ class AutoCompleter:
         # 从模块实例读取别名（动态）
         module = self._registry.get_module(module_name)
         if module and hasattr(module, "aliases") and module.aliases:
-            return cast(str, module.aliases[0])  # 返回第一个别名
+            return module.aliases
 
         return None
 
@@ -358,7 +359,7 @@ class AutoCompleter:
         for module in self._registry.list_modules():
             short_alias = self._get_short_alias(module.name)
             if short_alias == alias:
-                return cast(str, module.name)
+                return module.name
 
         return None
 
@@ -420,7 +421,13 @@ class AutoCompleter:
                 if param_name in model_fields:
                     field_info = model_fields[param_name]
                     if field_info.description:
-                        return cast(str, field_info.description)
+                        # field_info.description 在 Pydantic 中是 str | None
+                        # 这里已经检查了不为 None，可以直接使用
+                        desc = field_info.description
+                        if isinstance(desc, str):
+                            return desc
+                        # 如果是 None（理论上不应该，因为已经检查了）
+                        return "参数"
 
         return "参数"
 
@@ -442,8 +449,9 @@ class AutoCompleter:
 
         # 2. 清理文档字符串
         if doc:
-            text = doc.strip().split("\n")[0]
-            return cast(str, text)  # 取第一行
+            lines: list[str] = doc.strip().split("\n")
+            text: str = lines[0]
+            return text  # 取第一行
 
         return "无描述"
 

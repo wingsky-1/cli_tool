@@ -39,9 +39,9 @@ class DatabaseModule(CommandModule):
         return "数据库操作（连接、查询、断开）"
 
     @property
-    def aliases(self) -> list[str]:
-        """模块别名列表。"""
-        return ["db"]
+    def aliases(self) -> str | None:
+        """模块短别名。"""
+        return "db"
 
     def initialize(self, state_manager: "StateManager") -> None:
         """模块初始化。

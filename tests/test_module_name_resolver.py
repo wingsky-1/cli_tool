@@ -53,10 +53,7 @@ def test_protocol_duck_typing():
 def test_module_loader_uses_resolver():
     """测试 ModuleLoader 使用解析器。"""
     from ptk_repl.core.cli.module_loader import ModuleLoader
-    from ptk_repl.core.completer import AutoCompleter
-    from ptk_repl.core.config_manager import ConfigManager
-    from ptk_repl.core.registry import CommandRegistry
-    from ptk_repl.core.state_manager import StateManager
+    from ptk_repl.core import AutoCompleter, ConfigManager, CommandRegistry, StateManager
 
     # 创建带有自定义解析器的 ModuleLoader
     custom_resolver = ConfigurableResolver({"ssh": "SSH"})

@@ -13,6 +13,7 @@ from ptk_repl.core.cli import ModuleLoader, StyleManager
 from ptk_repl.core.completion import AutoCompleter
 from ptk_repl.core.configuration import ConfigManager
 from ptk_repl.core.execution import CommandExecutor
+from ptk_repl.core.interfaces import IPromptProvider
 from ptk_repl.core.loaders import (
     ModuleDiscoverer,
     ModuleManager,
@@ -53,7 +54,7 @@ class PromptToolkitCLI:
         # PromptSession 配置
         self.history_path = history_path or Path.home() / ".ptk_repl_history"
         self._style_manager = StyleManager()
-        self._prompt_manager = PromptManager(self.state)
+        self._prompt_manager: IPromptProvider = PromptManager(self.state)
 
         self.session: PromptSession[str] = PromptSession(
             history=FileHistory(str(self.history_path)),
@@ -66,7 +67,7 @@ class PromptToolkitCLI:
         )
 
         # 初始化自动补全器
-        self.auto_completer = AutoCompleter(self.registry)
+        self.auto_completer = AutoCompleter(self.registry)  # type: ignore[arg-type]
         self.registry.set_completer(self.auto_completer)
         self.session.completer = self.auto_completer.to_prompt_toolkit_completer()
 
@@ -236,16 +237,16 @@ class PromptToolkitCLI:
 
             # 2. 自动生成：模块别名 + 命令名
             if hasattr(module_instance, "aliases") and module_instance.aliases:
-                for module_alias in module_instance.aliases:
-                    # 对于 core 模块，只使用命令名
-                    if module_name == "core":
-                        combined = command_name
-                    else:
-                        combined = f"{module_alias} {command_name}"
+                module_alias = module_instance.aliases
+                # 对于 core 模块，只使用命令名
+                if module_name == "core":
+                    combined = command_name
+                else:
+                    combined = f"{module_alias} {command_name}"
 
-                    # 避免重复添加
-                    if combined not in all_aliases:
-                        all_aliases.append(combined)
+                # 避免重复添加
+                if combined not in all_aliases:
+                    all_aliases.append(combined)
 
             # 注册命令（包含所有别名）
             self.register_command(module_name, command_name, func, all_aliases)

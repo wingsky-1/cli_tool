@@ -4,15 +4,9 @@ import sys
 
 sys.path.insert(0, "src")
 
-from ptk_repl.core.registry import CommandRegistry as Registry
-from ptk_repl.core.state_manager import StateManager
-from ptk_repl.core.completer import AutoCompleter
-from ptk_repl.core.config_manager import ConfigManager
+from ptk_repl.core import CommandRegistry, StateManager, AutoCompleter, ConfigManager
 from ptk_repl.modules.core.module import CoreModule
 from ptk_repl.modules.database.module import DatabaseModule
-
-# 使用别名避免冲突
-CommandRegistry = Registry
 
 
 def test_core_functionality():
@@ -23,7 +17,7 @@ def test_core_functionality():
 
     # 测试核心组件
     print("\n1. 测试核心组件初始化...")
-    registry = Registry()
+    registry = CommandRegistry()
     state_mgr = StateManager()
     config_mgr = ConfigManager()
     completer = AutoCompleter(registry)

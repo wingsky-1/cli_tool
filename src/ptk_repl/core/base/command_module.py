@@ -26,9 +26,9 @@ class CommandModule(ABC):
         return ""
 
     @property
-    def aliases(self) -> list[str]:
-        """模块别名列表（如 ['db']）。"""
-        return []
+    def aliases(self) -> str | None:
+        """模块短别名（如 'db' 代表 'database'）。"""
+        return None
 
     @property
     def version(self) -> str:

@@ -75,3 +75,21 @@ class ModuleLoader:
     def loaded_modules(self) -> dict[str, "CommandModule"]:
         """已加载的模块字典（只读）。"""
         return self._loaded_modules.copy()
+
+    def ensure_module_loaded(self, module_name: str) -> None:
+        """确保模块已加载。
+
+        Args:
+            module_name: 模块名称
+        """
+        if not self.is_loaded(module_name):
+            self.load(module_name)
+
+    @property
+    def lazy_modules(self) -> dict[str, type]:
+        """懒加载模块字典。
+
+        注意：新的 ModuleLoader 不支持懒加载，返回空字典。
+        懒加载功能由 legacy_loader 提供。
+        """
+        return {}

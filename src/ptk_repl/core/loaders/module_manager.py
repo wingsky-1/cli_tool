@@ -4,6 +4,11 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from ptk_repl.core.configuration.config_manager import ConfigManager
+from ptk_repl.core.interfaces import (
+    IModuleDiscoverer,
+    IModuleLoader,
+    IModuleRegister,
+)
 
 if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
@@ -21,9 +26,9 @@ class ModuleManager:
 
     def __init__(
         self,
-        discoverer: Any,  # IModuleDiscoverer
-        loader: Any,  # IModuleLoader
-        register: Any,  # IModuleRegister
+        discoverer: IModuleDiscoverer,
+        loader: IModuleLoader,
+        register: IModuleRegister,
         config: ConfigManager,
         auto_completer: "AutoCompleter",
         register_commands_callback: Callable[["CommandModule"], None],
@@ -61,7 +66,7 @@ class ModuleManager:
             模块实例，如果加载失败则返回 None
         """
         # 1. 检查模块是否可用
-        if not cast(Any, self._discoverer).is_available(module_name):
+        if not self._discoverer.is_available(module_name):
             self._error_callback(f"模块 '{module_name}' 不存在")
             return None
 

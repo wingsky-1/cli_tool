@@ -23,9 +23,9 @@ class CoreModule(CommandModule):
         return "核心命令（状态、帮助、退出等）"
 
     @property
-    def aliases(self) -> list[str]:
-        """模块别名列表。"""
-        return []  # 核心模块不需要别名
+    def aliases(self) -> str | None:
+        """模块短别名。"""
+        return None  # 核心模块不需要别名
 
     def register_commands(self, cli: "PromptToolkitCLI") -> None:
         """注册核心命令。

@@ -43,9 +43,9 @@ class SSHModule(CommandModule):
         return "SSH 连接管理和日志查看"
 
     @property
-    def aliases(self) -> list[str]:
-        """模块别名列表。"""
-        return []
+    def aliases(self) -> str | None:
+        """模块短别名。"""
+        return None
 
     def initialize(self, state_manager: "StateManager") -> None:
         """模块初始化。

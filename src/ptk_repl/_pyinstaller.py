@@ -13,6 +13,7 @@ if False:
     # PyInstaller 会分析这些导入，即使它们在 if False 块中
     from ptk_repl.modules.core import CoreModule
     from ptk_repl.modules.database import DatabaseModule
+    from ptk_repl.modules.ssh import SSHModule
 
     # 未来添加的模块也要在这里列出
     # from ptk_repl.modules.file import FileModule
@@ -22,4 +23,5 @@ if False:
 __all__ = [
     "CoreModule",
     "DatabaseModule",
+    "SSHModule",
 ]

@@ -1,9 +1,8 @@
 """测试 ICliContext 接口实现（简化版）。"""
 
 from ptk_repl.core.interfaces.cli_context import ICliContext
-from ptk_repl.core.state_manager import StateManager
-from ptk_repl.core.registry import CommandRegistry
-from ptk_repl.core.cli.command_executor import CommandExecutor
+from ptk_repl.core import StateManager, CommandRegistry
+from ptk_repl.core.execution.command_executor import CommandExecutor
 
 
 def test_interface_exists():
@@ -51,7 +50,7 @@ def test_command_executor_signature():
 
 def test_typed_command_signature():
     """测试 typed_command 的类型注解。"""
-    from ptk_repl.core.decorators import typed_command
+    from ptk_repl.core import typed_command
     from pydantic import BaseModel
     import inspect
 
