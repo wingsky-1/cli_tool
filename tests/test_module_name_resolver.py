@@ -51,27 +51,32 @@ def test_protocol_duck_typing():
 
 
 def test_module_loader_uses_resolver():
-    """测试 ModuleLoader 使用解析器。"""
-    from ptk_repl.core.cli.module_loader import ModuleLoader
-    from ptk_repl.core import AutoCompleter, ConfigManager, CommandRegistry, StateManager
+    """测试 UnifiedModuleLoader 使用解析器。"""
+    from ptk_repl.core.loaders.unified_module_loader import UnifiedModuleLoader
+    from ptk_repl.core.loaders.lazy_module_tracker import LazyModuleTracker
+    from ptk_repl.core.loaders.module_register import ModuleRegister
+    from ptk_repl.core.registry.command_registry import CommandRegistry
+    from ptk_repl.core.state.state_manager import StateManager
 
-    # 创建带有自定义解析器的 ModuleLoader
+    # 创建带有自定义解析器的 UnifiedModuleLoader
     custom_resolver = ConfigurableResolver({"ssh": "SSH"})
-    loader = ModuleLoader(
-        registry=CommandRegistry(),
-        state_manager=StateManager(),
-        config=ConfigManager(),
-        auto_completer=AutoCompleter(CommandRegistry()),
-        register_commands_callback=lambda m: None,
-        error_callback=lambda e: None,
+    registry = CommandRegistry()
+    state_manager = StateManager()
+    lazy_tracker = LazyModuleTracker()
+    module_register = ModuleRegister(registry, state_manager)
+
+    loader = UnifiedModuleLoader(
         name_resolver=custom_resolver,
+        lazy_tracker=lazy_tracker,
+        module_register=module_register,
+        post_load_callbacks=None,
     )
 
     # 检查解析器是否正确注入
     assert loader._name_resolver is custom_resolver
     assert loader._name_resolver.resolve_class_name("ssh") == "SSH"
 
-    print("✅ ModuleLoader 依赖注入测试通过")
+    print("✅ UnifiedModuleLoader 依赖注入测试通过")
 
 
 if __name__ == "__main__":

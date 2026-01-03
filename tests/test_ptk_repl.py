@@ -4,9 +4,27 @@ import sys
 
 sys.path.insert(0, "src")
 
-from ptk_repl.core import CommandRegistry, StateManager, AutoCompleter, ConfigManager
+from ptk_repl.core.registry.command_registry import CommandRegistry
+from ptk_repl.core.state.state_manager import StateManager
+from ptk_repl.core.completion.auto_completer import AutoCompleter
+from ptk_repl.core.configuration.config_manager import ConfigManager
 from ptk_repl.modules.core.module import CoreModule
 from ptk_repl.modules.database.module import DatabaseModule
+
+
+# Mock CLI class for testing
+class MockCLI:
+    """模拟CLI类，用于测试。"""
+
+    def __init__(self, registry=None, state=None):
+        self.registry = registry or CommandRegistry()
+        self.state = state or StateManager()
+
+    def command(self, **kwargs):
+        """返回命令装饰器。"""
+        def decorator(func):
+            return func
+        return decorator
 
 
 def test_core_functionality():
@@ -28,9 +46,7 @@ def test_core_functionality():
     core_module = CoreModule()
     registry.register_module(core_module)
     core_module.initialize(state_mgr)
-    core_module.register_commands(
-        type("MockCLI", (object,), {"registry": registry, "state": state_mgr})
-    )
+    core_module.register_commands(MockCLI(registry, state_mgr))
     print(f"✅ 核心模块已注册，命令: {registry.list_module_commands('core')}")
 
     # 测试懒加载模块
@@ -38,9 +54,7 @@ def test_core_functionality():
     database_module = DatabaseModule()
     registry.register_module(database_module)
     database_module.initialize(state_mgr)
-    database_module.register_commands(
-        type("MockCLI", (object,), {"registry": registry, "state": state_mgr})
-    )
+    database_module.register_commands(MockCLI(registry, state_mgr))
     print(f"✅ 数据库模块已注册，���令: {registry.list_module_commands('database')}")
 
     # 测试命令查找
@@ -77,19 +91,10 @@ def test_core_functionality():
 
     # 测试命令执行
     print("\n8. 测试命令解析...")
-    from ptk_repl.core.registry import CommandRegistry
 
     test_registry = CommandRegistry()
 
-    class MockCLI:
-        def __init__(self):
-            self.registry = test_registry
-            self.state = StateManager()
-
-        def perror(self, msg):
-            print(f"   ERROR: {msg}")
-
-    mock_cli = MockCLI()
+    mock_cli = MockCLI(test_registry, StateManager())
 
     # 注册数据库模块
     db = DatabaseModule()

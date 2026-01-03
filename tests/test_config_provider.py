@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from ptk_repl.core.config import (
+from ptk_repl.core.configuration.providers import (
     CompositeConfigProvider,
     EnvConfigProvider,
     IConfigProvider,
@@ -121,7 +121,7 @@ def test_protocol_duck_typing() -> None:
 
 def test_config_manager_uses_provider() -> None:
     """测试 ConfigManager 使用配置提供者。"""
-    from ptk_repl.core.config_manager import ConfigManager
+    from ptk_repl.core.configuration.config_manager import ConfigManager
 
     # 创建自定义提供者
     custom_provider = YamlConfigProvider(Path.cwd() / "ptk_repl_config.yaml")

@@ -1,6 +1,11 @@
 """测试颜色主题系统。"""
 
-from ptk_repl.core.config.theme import ColorScheme, DARK_THEME, LIGHT_THEME, Theme
+from ptk_repl.core.configuration.themes.color_theme import (
+    ColorScheme,
+    DARK_THEME,
+    LIGHT_THEME,
+    Theme,
+)
 
 
 def test_color_scheme() -> None:
@@ -69,7 +74,7 @@ def test_help_formatter_uses_color_scheme() -> None:
     # 这个测试在实际运行环境中验证
     # 确保 HelpFormatter 可以接受 ColorScheme 参数
 
-    from ptk_repl.core.config.theme import ColorScheme
+    from ptk_repl.core.configuration.themes.color_theme import ColorScheme
 
     scheme = ColorScheme()
     assert scheme.color_text("text", "title") is not None

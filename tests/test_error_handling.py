@@ -19,7 +19,10 @@ from ptk_repl.core.error_handling.error_handlers import (
 from ptk_repl.core.exceptions.cli_exceptions import (
     CLIException,
     CommandException,
+    ConfigurationException,
+    ConnectionException,
     ModuleException,
+    ValidationException,
 )
 
 
