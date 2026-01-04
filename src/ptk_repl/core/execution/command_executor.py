@@ -103,11 +103,14 @@ class CommandExecutor:
                 self._cli_context.poutput(f"  • {full_cmd}")
             return
 
-        # 2. 尝试从懒加载模块中查找（通过别名）
+        # 2. 尝试从懒加载模块中查找（通过模块名或别名）
         for lazy_module_name, module_cls in self._module_loader.lazy_modules.items():
-            # 创建临时模块实例来检查别名
+            # 创建临时模块实例来检查
             temp_module = module_cls()
-            if hasattr(temp_module, "aliases") and temp_module.aliases == module_name:
+            # 同时检查模块名和别名
+            if temp_module.name == module_name or (
+                hasattr(temp_module, "aliases") and temp_module.aliases == module_name
+            ):
                 # 找到了！触发懒加载
                 self._module_loader.ensure_module_loaded(lazy_module_name)
 

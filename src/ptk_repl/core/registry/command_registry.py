@@ -140,12 +140,14 @@ class CommandRegistry:
         """获取模块。
 
         Args:
-            name: 模块名称
+            name: 模块名称或别名
 
         Returns:
             模块实例，如果未找到则返回 None
         """
-        return self._modules.get(name)
+        # 使用现有的 _resolve_module_name 解析模块名（支持别名）
+        resolved_name = self._resolve_module_name(name)
+        return self._modules.get(resolved_name) if resolved_name else None
 
     def list_module_commands(self, module_name: str) -> list[str]:
         """列出模块的所有命令。
