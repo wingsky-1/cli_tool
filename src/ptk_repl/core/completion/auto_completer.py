@@ -32,15 +32,24 @@ class AutoCompleter:
         ```
     """
 
-    def __init__(self, registry: IRegistry) -> None:
+    def __init__(
+        self,
+        registry: IRegistry,
+        enable_fuzzy: bool = True,
+        fuzzy_min_score: float = 0.5,
+    ) -> None:
         """初始化自动补全器。
 
         Args:
             registry: 命令注册表实例
+            enable_fuzzy: 是否启用 fuzzy 匹配（默认 True）
+            fuzzy_min_score: fuzzy 匹配最低分数阈值（默认 0.5）
         """
         self._registry = registry
         self._completion_dict: dict[str, list[str]] | None = None
         self._lazy_module_commands: dict[str, list[str]] = {}
+        self._enable_fuzzy = enable_fuzzy
+        self._fuzzy_min_score = fuzzy_min_score
 
     def register_lazy_commands(self, module_name: str, commands: list[str]) -> None:
         """注册懒加载模块的命令列表（用于补全）。
@@ -329,10 +338,24 @@ class AutoCompleter:
         candidates = completion_dict.get(prefix, [])
 
         # 过滤匹配的候选项
-        matches = [c for c in candidates if c.startswith(word)]
+        if self._enable_fuzzy and word and not word.startswith("-"):
+            # Fuzzy 匹配模式
+            from ptk_repl.core.completion.fuzzy_matcher import cached_fuzzy_match
+
+            match_results = []
+            for candidate in candidates:
+                result = cached_fuzzy_match(word.lower(), candidate.lower())
+                if result.matched and result.score >= self._fuzzy_min_score:
+                    match_results.append((candidate, result.score))
+
+            # 按分数排序
+            matches = [c for c, _ in sorted(match_results, key=lambda x: x[1], reverse=True)]
+        else:
+            # 传统前缀匹配
+            matches = [c for c in candidates if c.startswith(word)]
 
         # 生成 Completion 对象（使用 yield）
-        for match in sorted(matches):
+        for match in matches:
             yield Completion(
                 text=match,
                 start_position=-len(word),
