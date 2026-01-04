@@ -3,6 +3,11 @@
 运行方式: python -m ptk_repl
 """
 
+# ruff: noqa: I001  # 允许自定义导入顺序（_pyinstaller 必须在最先）
+
+# 导入 PyInstaller 运行时配置（必须在其他导入之前）
+from ptk_repl import _pyinstaller  # noqa: F401  # 设置环境变量
+
 from ptk_repl.cli import PromptToolkitCLI
 
 
