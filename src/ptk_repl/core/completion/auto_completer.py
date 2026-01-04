@@ -32,15 +32,22 @@ class AutoCompleter:
         ```
     """
 
-    def __init__(self, registry: IRegistry) -> None:
+    def __init__(self, registry: IRegistry, enable_fuzzy: bool = True) -> None:
         """初始化自动补全器。
 
         Args:
             registry: 命令注册表实例
+            enable_fuzzy: 是否启用模糊匹配（默认 True）
         """
         self._registry = registry
         self._completion_dict: dict[str, list[str]] | None = None
         self._lazy_module_commands: dict[str, list[str]] = {}
+        self._enable_fuzzy = enable_fuzzy
+
+        # 延迟导入（避免循环依赖）
+        from ptk_repl.core.completion.fuzzy_matcher import FuzzyMatcher
+
+        self._fuzzy_matcher = FuzzyMatcher()
 
     def register_lazy_commands(self, module_name: str, commands: list[str]) -> None:
         """注册懒加载模块的命令列表（用于补全）。
@@ -110,25 +117,33 @@ class AutoCompleter:
         core_commands = self._registry.list_module_commands("core")
         completion_dict[""] = sorted(core_commands)
 
-        # 2. 添加所有模块名到顶层补全
+        # 2. 添加所有模块名到顶层补全（包括懒加载模块）
+        all_modules = set()
+
+        # 2.1 已加载模块
         for module in self._registry.list_modules():
             if module.name != "core":
-                completion_dict[""].append(module.name)
+                all_modules.add(module.name)
                 # 短别名
                 short_name = self._get_short_alias(module.name)
                 if short_name:
-                    completion_dict[""].append(short_name)
+                    all_modules.add(short_name)
 
-        # 3. 懒加载模块名到顶层补全
-        for module_name in self._lazy_module_commands.keys():
-            if module_name not in completion_dict[""]:
-                completion_dict[""].append(module_name)
+        # 2.2 懒加载模块（如果有 lazy_tracker）
+        if hasattr(self._registry, "_lazy_tracker") and self._registry._lazy_tracker:
+            lazy_modules = self._registry._lazy_tracker.lazy_modules
+            for module_name in lazy_modules:
+                all_modules.add(module_name)
                 short_name = self._get_short_alias(module_name)
-                if short_name and short_name not in completion_dict[""]:
-                    completion_dict[""].append(short_name)
+                if short_name:
+                    all_modules.add(short_name)
 
-        # 4. 排序顶层补全
-        completion_dict[""] = sorted(completion_dict[""])
+            # 从 alias_map 获取别名
+            alias_map = getattr(self._registry._lazy_tracker, "_alias_to_module", {})
+            for alias in alias_map.keys():
+                all_modules.add(alias)
+
+        completion_dict[""] = sorted(all_modules)
 
         # 5. 模块命令补全
         for module in self._registry.list_modules():
@@ -252,6 +267,22 @@ class AutoCompleter:
         if not words:
             return
 
+        # 检查参数输入（-- 前缀）
+        if words and words[-1].startswith("-"):
+            # 参数补全模式
+            param_completions = self._get_parameter_completions_for_context(words)
+            if param_completions:
+                word = words[-1]
+                matches = [p for p in param_completions if p.startswith(word)]
+                for match in sorted(matches):
+                    yield Completion(
+                        text=match,
+                        start_position=-len(word),
+                        display=match,
+                        display_meta="参数",
+                    )
+            return
+
         # 构建补全字典
         completion_dict = self.build_completion_dict()
 
@@ -280,8 +311,14 @@ class AutoCompleter:
         # 获取候选项
         candidates = completion_dict.get(prefix, [])
 
-        # 过滤匹配的候选项
-        matches = [c for c in candidates if c.startswith(word)]
+        # 模糊匹配或前缀匹配
+        if self._enable_fuzzy and word:
+            # 使用模糊匹配
+            match_results = self._fuzzy_matcher.match(word, candidates)
+            matches = [r.candidate for r in match_results if r.score >= 50]
+        else:
+            # 前缀匹配（向后兼容）
+            matches = [c for c in candidates if c.startswith(word)]
 
         # 生成 Completion 对象（使用 yield）
         for match in sorted(matches):
@@ -454,6 +491,30 @@ class AutoCompleter:
             return text  # 取第一行
 
         return "无描述"
+
+    def _get_parameter_completions_for_context(self, words: list[str]) -> list[str]:
+        """根据上下文获取参数补全列表。
+
+        Args:
+            words: 已输入的单词列表
+
+        Returns:
+            参数补全列表
+        """
+        if len(words) < 2:
+            return []
+
+        # 构建命令前缀（如 "database connect"）
+        command_prefix = " ".join(words[:-1])
+
+        # 解析别名
+        full_command = self._resolve_alias(command_prefix)
+
+        # 获取参数补全字典
+        param_dict = self._build_parameter_completions()
+
+        # 返回该命令的参数列表
+        return param_dict.get(full_command, [])
 
     def to_prompt_toolkit_completer(self) -> "Completer":
         """转换为 prompt_toolkit 的 Completer 接口。
