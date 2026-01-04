@@ -22,6 +22,9 @@ class GlobalState(BaseModel):
     current_port: int | None = None
     auth_token: str | None = None
 
+    # 活动模块（用户当前工作的模块上下文）
+    active_module: str | None = Field(default=None, description="当前活动模块名称")
+
     # 使用组合而非专用字段
     connection_context: ConnectionContext | None = Field(default=None, exclude=True)
 
@@ -41,6 +44,22 @@ class GlobalState(BaseModel):
             连接上下文对象，如果未设置则返回 None
         """
         return self.connection_context
+
+    def set_active_module(self, module_name: str | None) -> None:
+        """设置活动模块。
+
+        Args:
+            module_name: 模块名称，None 表示全局模式
+        """
+        self.active_module = module_name
+
+    def get_active_module(self) -> str | None:
+        """获取当前活动模块。
+
+        Returns:
+            模块名称，None 表示全局模式
+        """
+        return self.active_module
 
     def clear_connection_context(self) -> None:
         """清除连接上下文。"""

@@ -37,7 +37,7 @@ class CommandExecutor:
         self._cli_context = cli_context
 
     def execute(self, command_str: str) -> None:
-        """执行命令。
+        """执行命令（支持模块上下文感知）。
 
         Args:
             command_str: 命令字符串
@@ -46,8 +46,22 @@ class CommandExecutor:
         if not tokens:
             return
 
-        # 解析命令
+        # 获取当前活动模块
+        active_module = self._cli_context.state.global_state.get_active_module()
+
+        # 尝试直接匹配命令
         cmd_info = self._registry.get_command_info(command_str)
+
+        if not cmd_info and active_module and len(tokens) == 1:
+            # 模块上下文感知: 尝试补全模块名
+            enhanced_cmd = f"{active_module} {tokens[0]}"
+            cmd_info = self._registry.get_command_info(enhanced_cmd)
+
+            if cmd_info:
+                # 使用增强的命令(带模块前缀)
+                command_str = enhanced_cmd
+                tokens = [active_module, tokens[0]]
+
         if cmd_info:
             module_name, command_name, handler = cmd_info
 

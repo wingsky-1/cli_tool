@@ -113,3 +113,54 @@ class CoreModule(CommandModule):
             cli.poutput("  • 使用 'help' 查看总览帮助")
             cli.poutput("  • 使用 'help <command>' 查看命令帮助")
             cli.poutput("  • 使用 'help <module>' 查看模块帮助")
+
+        @cli.command()
+        def use(args: str) -> None:
+            """切换到指定模块上下文。
+
+            用法：
+                use <module>    切换到指定模块
+                use core       返回全局模式
+
+            示例：
+                use ssh        切换到 SSH 模块，之后可直接输入 env, tail 等命令
+                use core       返回全局模式，需要输入完整命令（如 ssh env）
+
+            当前模块：
+                输入 use（不带参数）可查看当前模块
+            """
+            if not args.strip():
+                # 显示当前模块
+                current = cli.state.global_state.get_active_module()
+                if current:
+                    cli.poutput(f"当前模块: {current}")
+                    cli.poutput("提示：直接输入命令将自动匹配该模块的命令")
+                    cli.poutput("      输入 'use core' 返回全局模式")
+                else:
+                    cli.poutput("当前模式: 全局")
+                    cli.poutput("提示：输入完整命令（如 'ssh env'）或使用 'use <module>' 切换模块")
+                return
+
+            module_name = args.strip()
+
+            # 特殊处理：返回全局模式
+            if module_name == "core":
+                cli.state.global_state.set_active_module(None)
+                cli.poutput("已返回全局模式")
+                return
+
+            # 验证模块是否存在
+            module = cli.registry.get_module(module_name)
+            if not module:
+                cli.perror(f"未知模块: {module_name}")
+                cli.poutput("可用模块:")
+                for m in cli.registry.list_modules():
+                    if m.name != "core":
+                        cli.poutput(f"  • {m.name}")
+                return
+
+            # 切换模块
+            cli.state.global_state.set_active_module(module_name)
+            cli.poutput(f"已切换到 {module_name} 模块")
+            cli.poutput(f"提示：现在可以直接输入 {module_name} 的命令（如 env, tail）")
+            cli.poutput("      输入 'use core' 返回全局模式")

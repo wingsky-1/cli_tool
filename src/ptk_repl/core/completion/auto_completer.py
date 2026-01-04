@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from prompt_toolkit.completion import CompleteEvent, Completer, Completion
     from prompt_toolkit.document import Document
 
+    from ptk_repl.core.state.state_manager import StateManager
+
 
 class AutoCompleter:
     """自动命令补全器。
@@ -35,6 +37,7 @@ class AutoCompleter:
     def __init__(
         self,
         registry: IRegistry,
+        state_manager: "StateManager | None" = None,
         enable_fuzzy: bool = True,
         fuzzy_min_score: float = 0.5,
     ) -> None:
@@ -42,10 +45,12 @@ class AutoCompleter:
 
         Args:
             registry: 命令注册表实例
+            state_manager: 状态管理器实例（可选，用于模块上下文感知）
             enable_fuzzy: 是否启用 fuzzy 匹配（默认 True）
             fuzzy_min_score: fuzzy 匹配最低分数阈值（默认 0.5）
         """
         self._registry = registry
+        self._state_manager = state_manager
         self._completion_dict: dict[str, list[str]] | None = None
         self._lazy_module_commands: dict[str, list[str]] = {}
         self._enable_fuzzy = enable_fuzzy
@@ -179,6 +184,18 @@ class AutoCompleter:
         # 8. 参数补全（基于 Pydantic）
         param_completions = self._build_parameter_completions()
         completion_dict.update(param_completions)
+
+        # 9. 活动模块的命令提升到顶层补全（模块上下文感知）
+        if self._state_manager:
+            active_module = self._state_manager.global_state.get_active_module()
+            if active_module and active_module != "core":
+                # 获取活动模块的命令
+                commands = self._registry.list_module_commands(active_module)
+                # 将活动模块的命令添加到顶层补全（优先显示）
+                for cmd in commands:
+                    if cmd not in completion_dict[""]:
+                        # 插入到开头，优先显示
+                        completion_dict[""].insert(0, cmd)
 
         self._completion_dict = completion_dict
         return completion_dict

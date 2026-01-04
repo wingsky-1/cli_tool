@@ -59,8 +59,8 @@ class PromptToolkitCLI:
             complete_style=CompleteStyle.COLUMN,  # 多列菜单显示（在下方展示候选项）
         )
 
-        # 初始化自动补全器
-        self.auto_completer = AutoCompleter(self.registry)  # type: ignore[arg-type]
+        # 初始化自动补全器（传递 state_manager 用于模块上下文感知）
+        self.auto_completer = AutoCompleter(self.registry, self.state)  # type: ignore[arg-type]
         self.registry.set_completer(self.auto_completer)
         self.session.completer = self.auto_completer.to_prompt_toolkit_completer()
 
