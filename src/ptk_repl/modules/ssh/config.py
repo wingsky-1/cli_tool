@@ -64,6 +64,17 @@ class SSHModuleConfig(BaseModel):
     log_paths: dict[str, list[LogConfig]] = Field(default_factory=dict)
 
 
+class TailArgs(BaseModel):
+    """Tail 命令参数（类 Unix 风格）。"""
+
+    lines: int = Field(default=10, description="显示行数（-n 参数）")
+    follow: bool = Field(default=False, description="跟踪模式（-f 参数）")
+    filter: str | None = Field(default=None, description="关键字过滤（--filter 参数）")
+    context_before: int = Field(default=0, description="上下文前行数（-B 参数）")
+    context_after: int = Field(default=0, description="上下文后行数（-A 参数）")
+    path: str = Field(..., description="日志文件路径")
+
+
 def load_ssh_config(config_manager: "ConfigManager | Any") -> SSHModuleConfig:
     """从配置管理器加载 SSH 配置。
 
