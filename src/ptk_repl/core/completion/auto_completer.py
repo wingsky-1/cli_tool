@@ -259,23 +259,71 @@ class AutoCompleter:
         # 检查是否在空格之后（text 以空格结尾）
         ends_with_space = text.endswith(" ")
 
-        if len(words) == 1:
+        # 1. 检查是否触发参数补全
+        # 场景1: "database connect " (完整命令后空格)
+        # 场景2: "database connect --" (输入 -- 或 -)
+        # 场景3: "ssh tail --lines 100 --" (参数后继续补全其他参数)
+        should_complete_params = False
+        param_command_prefix = None  # 记住参数补全的命令前缀
+
+        # 检查当前是否在输入参数（以 -- 或 - 开头）
+        current_word_is_param = words[-1].startswith("--") or words[-1].startswith("-")
+
+        # 检查前缀是否是完整命令（在 completion_dict 中有对应的参数补全）
+        if len(words) >= 2:
+            # 构建可能的命令前缀
             if ends_with_space:
-                # "database " -> 补全子命令
-                prefix = words[0]
-                word = ""
+                # "database connect " -> 前缀是 "database connect"
+                potential_command = " ".join(words)
+            elif current_word_is_param:
+                # "database connect --" 或 "ssh tail --lines 100 --"
+                # 需要找到真正的命令前缀（模块名 + 命令名）
+                # 策略：从前向后找，直到找到在 completion_dict 中的命令
+                for i in range(len(words), 1, -1):
+                    test_prefix = " ".join(words[:i])
+                    if test_prefix in completion_dict:
+                        # 验证这个条目是否是参数补全（包含 -- 开头的选项）
+                        params = completion_dict[test_prefix]
+                        if any(p.startswith("--") for p in params):
+                            param_command_prefix = test_prefix
+                            should_complete_params = True
+                            break
+                potential_command = None
             else:
-                # "data" -> 补全命令或模块
-                prefix = ""
-                word = words[0]
-        elif len(words) == 2:
-            # "database conn" -> 补全模块的子命令
-            prefix = words[0]
-            word = words[1]
+                # "database connect" (没有空格) -> 不是参数补全
+                potential_command = None
+
+            # 检查这个前缀是否有参数补全
+            if potential_command and potential_command in completion_dict:
+                # 验证这个条目是否是参数补全（包含 -- 开头的选项）
+                params = completion_dict[potential_command]
+                if any(p.startswith("--") for p in params):
+                    should_complete_params = True
+                    param_command_prefix = potential_command
+
+        # 2. 如果不是参数补全，使用原有逻辑
+        if not should_complete_params:
+            if len(words) == 1:
+                if ends_with_space:
+                    # "database " -> 补全子命令
+                    prefix = words[0]
+                    word = ""
+                else:
+                    # "data" -> 补全命令或模块
+                    prefix = ""
+                    word = words[0]
+            elif len(words) == 2:
+                # "database conn" -> 补全模块的子命令
+                prefix = words[0]
+                word = words[1]
+            else:
+                # 更多词 - 尝试作为参数补全处理
+                prefix = " ".join(words[:-1])
+                word = words[-1]
         else:
-            # 更多词 - 可能是参数补全
-            prefix = " ".join(words[:-1])
-            word = words[-1]
+            # 使用参数补全的命令前缀
+            prefix = param_command_prefix if param_command_prefix else " ".join(words[:-1])
+            word = "" if ends_with_space else words[-1]
 
         # 获取候选项
         candidates = completion_dict.get(prefix, [])
