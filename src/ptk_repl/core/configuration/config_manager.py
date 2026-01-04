@@ -1,5 +1,6 @@
 """配置管理器。"""
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -73,19 +74,41 @@ class ConfigManager:
         return self._provider
 
     def _find_config(self) -> str | None:
-        """查找配置文件。
+        """查找配置文件（适配 PyInstaller 打包后的路径）。
 
         Returns:
             配置文件路径，如果未找到则返回 None
         """
-        paths = [
-            Path.cwd() / "ptk_repl_config.yaml",
-            Path.cwd() / "config" / "ptk_repl.yaml",
-            Path.home() / ".ptk_repl" / "config.yaml",
-        ]
+        # 候选路径列表
+        paths = []
+
+        # 1. PyInstaller 打包后的路径
+        if getattr(sys, "frozen", False):
+            # 运行打包后的 exe 时，sys.executable 是 exe 文件的路径
+            bundle_dir = Path(sys.executable).parent
+            paths.append(bundle_dir / "ptk_repl_config.yaml")
+
+        # 2. 当前工作目录
+        paths.append(Path.cwd() / "ptk_repl_config.yaml")
+        paths.append(Path.cwd() / "config" / "ptk_repl.yaml")
+
+        # 3. 用户主目录
+        paths.append(Path.home() / ".ptk_repl" / "config.yaml")
+
+        # 4. 源代码目录（开发环境）
+        if not getattr(sys, "frozen", False):
+            # 开发环境：从 __file__ 推算
+            try:
+                src_dir = Path(__file__).parent.parent.parent.parent
+                paths.append(src_dir / "ptk_repl_config.yaml")
+            except Exception:
+                pass
+
+        # 检查第一个存在的路径
         for path in paths:
             if path.exists():
                 return str(path)
+
         return None
 
     def get(self, key: str, default: Any = None) -> Any:
