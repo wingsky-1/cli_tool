@@ -10,7 +10,7 @@ from pathlib import Path
 
 def discover_modules():
     """自动发现所有模块。"""
-    modules_dir = Path(__file__).parent / "src" / "ptk_repl" / "modules"
+    modules_dir = Path(__file__).parent.parent / "src" / "ptk_repl" / "modules"
     modules = []
 
     for item in modules_dir.iterdir():
@@ -22,7 +22,7 @@ def discover_modules():
 
 def discover_core_submodules():
     """扫描所有核心框架子模块。"""
-    core_dir = Path(__file__).parent / "src" / "ptk_repl" / "core"
+    core_dir = Path(__file__).parent.parent / "src" / "ptk_repl" / "core"
     submodules = []
 
     for item in core_dir.iterdir():
@@ -41,7 +41,7 @@ def discover_core_submodules():
 
 def discover_module_submodules(module_name: str) -> list[str]:
     """扫描特定模块的所有子文件。"""
-    module_dir = Path(__file__).parent / "src" / "ptk_repl" / "modules" / module_name
+    module_dir = Path(__file__).parent.parent / "src" / "ptk_repl" / "modules" / module_name
     submodules: list[str] = []
 
     if not module_dir.exists():
@@ -118,12 +118,12 @@ def build_hidden_imports(modules):
         imports.append(f"ptk_repl.modules.{module}")
 
         # module.py
-        module_file = Path(__file__).parent / "src" / "ptk_repl" / "modules" / module / "module.py"
+        module_file = Path(__file__).parent.parent / "src" / "ptk_repl" / "modules" / module / "module.py"
         if module_file.exists():
             imports.append(f"ptk_repl.modules.{module}.module")
 
         # state.py（如果存在）
-        state_file = Path(__file__).parent / "src" / "ptk_repl" / "modules" / module / "state.py"
+        state_file = Path(__file__).parent.parent / "src" / "ptk_repl" / "modules" / module / "state.py"
         if state_file.exists():
             imports.append(f"ptk_repl.modules.{module}.state")
 
@@ -147,7 +147,7 @@ def build_hidden_imports(modules):
 def build_pyinstaller_command(hidden_imports):
     """构建 PyInstaller 命令。"""
     cmd = [
-        "pyinstaller",
+        "uv", "run", "pyinstaller",
         "--name=ptk_repl",
         "--console",
         "--onefile",
@@ -157,6 +157,10 @@ def build_pyinstaller_command(hidden_imports):
     # 添加 hidden-import
     for imp in hidden_imports:
         cmd.append(f"--hidden-import={imp}")
+
+    # 收集第三方库的数据文件
+    cmd.append("--collect-data=pyfiglet")  # pyfiglet 字体文件
+    cmd.append("--collect-data=paramiko")  # paramiko 密钥文件
 
     # 收集整个包（避免遗漏）
     cmd.append("--collect-all=ptk_repl")
