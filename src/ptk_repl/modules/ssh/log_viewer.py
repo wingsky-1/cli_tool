@@ -29,7 +29,13 @@ class SSHLogViewer:
         self.ssh_state = ssh_state
 
     def view_log(
-        self, env: str | None = None, mode: str | None = None, file: str | None = None
+        self,
+        env: str | None = None,
+        mode: str | None = None,
+        file: str | None = None,
+        lines: int | None = None,
+        filter: str | None = None,
+        follow: bool = True,
     ) -> None:
         """查看服务器日志。
 
@@ -37,6 +43,9 @@ class SSHLogViewer:
             env: 环境名称（可选）
             mode: 日志模式（可选）
             file: 日志文件名称（可选）
+            lines: 显示最后 N 行（可选）
+            filter: 关键字过滤（可选）
+            follow: 是否持续跟踪（默认 True）
         """
         gs = self.cli.state.global_state
         config = load_ssh_config(self.cli.config)
@@ -133,7 +142,14 @@ class SSHLogViewer:
         # 7. 执行日志查看
         try:
             self.cli.poutput(f"正在查看 {env_name} 的 {log_config.name}... (Ctrl+C 退出)")
-            tail_log(conn_info.get_client(), log_config, log_mode)
+            tail_log(
+                conn_info.get_client(),
+                log_config,
+                log_mode,
+                lines=lines,
+                filter_pattern=filter,
+                follow=follow,
+            )
         except KeyboardInterrupt:
             self.cli.poutput("\n日志查看已终止")
         except Exception as e:

@@ -25,6 +25,22 @@ class TailArgs(BaseModel):
     mode: str | None = Field(default=None, description="日志模式 (direct/k8s/docker)")
     file: str | None = Field(default=None, description="日志文件名称")
 
+    # 新增参数
+    lines: int | None = Field(
+        default=None,
+        ge=1,
+        le=10000,
+        description="显示最后 N 行（1-10000），例如：--lines 100",
+    )
+    filter: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        pattern=r"^[a-zA-Z0-9_\-\.\*\?\[\]\{\}\(\)\|\\\$^]+$",
+        description="关键字过滤（使用 grep），例如：--filter ERROR",
+    )
+    follow: bool = Field(default=True, description="是否持续跟踪日志（类似 -f）")
+
 
 class SSHModule(CommandModule):
     """SSH 模块。
@@ -130,10 +146,21 @@ class SSHModule(CommandModule):
             """查看服务器日志。
 
             用法：
-                ssh tail                    # 使用当前环境的 log_type
-                ssh tail prod              # 指定环境
-                ssh tail --mode k8s        # 指定模式（覆盖环境的 log_type）
-                ssh tail prod --file 应用日志  # 指定日志文件
+                ssh tail                                   # 使用当前环境的 log_type
+                ssh tail prod                             # 指定环境
+                ssh tail --mode k8s                       # 指定模式（覆盖环境的 log_type）
+                ssh tail prod --file 应用日志              # 指定日志文件
+                ssh tail --lines 100                      # 显示最后 100 行
+                ssh tail --filter ERROR                   # 只显示包含 ERROR 的行
+                ssh tail --lines 50 --filter 'Exception'  # 组合使用
+                ssh tail --no-follow                      # 查看静态日志（不持续跟踪）
             """
             # 使用日志查看器查看日志
-            log_viewer.view_log(env=args.env, mode=args.mode, file=args.file)
+            log_viewer.view_log(
+                env=args.env,
+                mode=args.mode,
+                file=args.file,
+                lines=args.lines,
+                filter=args.filter,
+                follow=args.follow,
+            )
