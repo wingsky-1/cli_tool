@@ -6,6 +6,23 @@
     在打包时，PyInstaller 会分析此文件并包含所有导入的模块。
 """
 
+import os
+
+# ===== 运行时配置（修复终端兼容性问题） =====
+
+# 强制 prompt_toolkit 使用 Windows 控制台输出
+# 避免 "Found xterm, while expecting a Windows console" 错误
+os.environ["PROMPT_TOOLKIT_NO_CPR"] = "1"
+
+# Windows 下明确设置终端类型（修复 Git Bash 兼容性）
+if os.name == "nt":
+    # 检测是否在 Git Bash/MSYS2 环境中
+    if os.environ.get("TERM") == "xterm":
+        # 强制使用 Windows 控制台模式
+        os.environ["TERM"] = "msys"
+
+# ===== PyInstaller 模块发现（在 if False 块中）=====
+
 # 显式导入所有可用的模块，确保 PyInstaller 能发现它们
 # 这些导入在运行时不会被执行（通过 if False 保护）
 
