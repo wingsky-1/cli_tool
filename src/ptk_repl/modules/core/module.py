@@ -74,6 +74,43 @@ class CoreModule(CommandModule):
                 for module_name in lazy_modules:
                     cli.poutput(f"  • {module_name} (首次使用时加载)")
 
+        @cli.command()
+        def use(args: str) -> None:
+            """切换到指定模块上下文。
+
+            用法：use <模块名>
+
+            切换后，可以直接输入命令名而无需指定模块名。
+            例如：use ssh 后，可以直接输入 env 而非 ssh env。
+
+            要切换回默认模式，使用：use core
+            """
+            if not args.strip():
+                # 没有参数，显示当前模块
+                current = cli.state.global_state.get_active_module()
+                if current:
+                    cli.poutput(f"当前模块: {current}")
+                else:
+                    cli.poutput("未设置模块（使用 'use <模块名>' 切换）")
+                return
+
+            module_name = args.strip()
+
+            # 验证模块是否存在
+            # 1. 检查已加载模块
+            module = cli.registry.get_module(module_name)
+            if not module:
+                # 2. 尝试懒加载模块
+                cmd_info = cli.registry.get_command_info(module_name)
+                if not cmd_info:
+                    cli.perror(f"未找到模块: {module_name}")
+                    return
+
+            # 设置激活模块
+            cli.state.global_state.set_active_module(module_name)
+            cli.poutput(f"已切换到 {module_name} 模块")
+            cli.poutput("现在可以直接使用该模块的命令，无需指定模块名")
+
         @cli.command(name="help")
         def do_help(args: str) -> None:
             """显示帮助信息。

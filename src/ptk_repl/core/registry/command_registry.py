@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ptk_repl.core.base import CommandModule
     from ptk_repl.core.completion.auto_completer import AutoCompleter
+    from ptk_repl.core.loaders.lazy_module_tracker import LazyModuleTracker
 
 
 # 命令信息类型：(模块名, 命令名, 处理函数)
@@ -24,6 +25,7 @@ class CommandRegistry:
         self._command_map: dict[str, CommandInfo] = {}
         self._alias_map: dict[str, str] = {}
         self._completer: AutoCompleter | None = None
+        self._lazy_tracker: LazyModuleTracker | None = None  # 懒加载追踪器（延迟注入）
 
     def set_completer(self, completer: "AutoCompleter") -> None:
         """设置补全器。
@@ -32,6 +34,14 @@ class CommandRegistry:
             completer: AutoCompleter 实例
         """
         self._completer = completer
+
+    def set_lazy_tracker(self, lazy_tracker: "LazyModuleTracker") -> None:
+        """设置懒加载追踪器。
+
+        Args:
+            lazy_tracker: LazyModuleTracker 实例
+        """
+        self._lazy_tracker = lazy_tracker
 
     def register_module(self, module: "CommandModule") -> None:
         """注册模块。
@@ -80,11 +90,14 @@ class CommandRegistry:
         if self._completer:
             self._completer.refresh()
 
-    def get_command_info(self, command_str: str) -> tuple[str, str, Callable] | None:
+    def get_command_info(
+        self, command_str: str, active_module: str | None = None
+    ) -> tuple[str, str, Callable] | None:
         """获取命令信息。
 
         Args:
             command_str: 命令字符串
+            active_module: 当前激活的模块（用于上下文感知，可选）
 
         Returns:
             (模块名, 命令名, 处理器) 元组，如果未找到则返回 None
@@ -96,6 +109,13 @@ class CommandRegistry:
         # 解析命令（最多分割成3部分：模块名 命令名 参数...）
         parts = command_str.strip().split(maxsplit=2)
 
+        # 上下文优先：如果只有命令名且在激活模块中
+        if len(parts) == 1 and active_module:
+            full_cmd = f"{active_module} {parts[0]}"
+            if full_cmd in self._command_map:
+                return self._command_map[full_cmd]
+
+        # 原有逻辑：处理 "模块名 命令名" 格式
         if len(parts) >= 2:
             module_name, cmd_name = parts[0], parts[1]
             full_module = self._resolve_module_name(module_name)
@@ -104,6 +124,7 @@ class CommandRegistry:
                 if full_cmd in self._command_map:
                     return self._command_map[full_cmd]
 
+        # 检查是否是顶层命令
         if command_str in self._command_map:
             return self._command_map[command_str]
 
@@ -118,18 +139,28 @@ class CommandRegistry:
         Returns:
             完整模块名，如果未找到则返回 None
         """
-        # 1. 精确匹配模块名
+        # 1. 精确匹配已加载模块
         if short_name in self._modules:
             module = self._modules[short_name]
-            # 返回模块的真实名称（不是别名）
             return module.name if hasattr(module, "name") else short_name
 
-        # 2. 遍历所有模块，检查别名（动态读取）
+        # 2. 通过懒加载追踪器查找（修复循环依赖问题）
+        if self._lazy_tracker:
+            # 2.1 通过别名查找
+            full_name = self._lazy_tracker.find_by_alias(short_name)
+            if full_name:
+                return full_name
+
+            # 2.2 直接查找懒加载模块
+            if short_name in self._lazy_tracker.lazy_modules:
+                return short_name
+
+        # 3. 已加载模块的别名属性（向后兼容）
         for module in self._modules.values():
             if hasattr(module, "aliases") and module.aliases == short_name:
                 return module.name
 
-        # 3. 前缀匹配（保留现有能力）
+        # 4. 前缀匹配（保留现有能力）
         for module_name in self._modules:
             if module_name.startswith(short_name):
                 return module_name

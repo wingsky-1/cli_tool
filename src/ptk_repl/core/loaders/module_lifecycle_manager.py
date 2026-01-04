@@ -140,3 +140,8 @@ class ModuleLifecycleManager(IModuleLoader):
     def lazy_modules(self) -> dict[str, type]:
         """懒加载模块字典（IModuleLoader 接口）。"""
         return self._loader.lazy_modules
+
+    @property
+    def lazy_tracker(self) -> LazyModuleTracker:
+        """懒加载追踪器（用于模块名解析）。"""
+        return self._tracker

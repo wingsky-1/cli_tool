@@ -24,13 +24,25 @@ class PromptManager:
             提示符字符串
         """
         gs = self.state_manager.global_state
+
+        # 获取激活的模块
+        active_module = gs.get_active_module()
+
         if gs.connected:
             ctx = gs.get_connection_context()
             if ctx and ctx.is_connected():
                 # 使用多态方法，无需 isinstance 检查
                 suffix = ctx.get_prompt_suffix()
+                if active_module:
+                    return f"(ptk:{suffix})[{active_module}] > "
                 return f"(ptk:{suffix}) > "
             elif gs.current_host:
                 # 兼容旧版本：显示主机和端口
+                if active_module:
+                    return f"(ptk:{gs.current_host}:{gs.current_port})[{active_module}] > "
                 return f"(ptk:{gs.current_host}:{gs.current_port}) > "
+
+        # 未连接状态
+        if active_module:
+            return f"(ptk)[{active_module}] > "
         return "(ptk) > "

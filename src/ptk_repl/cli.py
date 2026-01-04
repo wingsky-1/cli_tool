@@ -91,6 +91,9 @@ class PromptToolkitCLI:
         # 加载核心模块
         self._module_manager.load_modules()
 
+        # 注入懒加载追踪器到命令注册表（修复模块名解析问题）
+        self.registry.set_lazy_tracker(self._module_manager.lazy_tracker)
+
     def run(self) -> None:
         """运行 REPL 主循环。"""
         self._print_welcome()

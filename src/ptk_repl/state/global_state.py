@@ -21,6 +21,7 @@ class GlobalState(BaseModel):
     current_host: str | None = None
     current_port: int | None = None
     auth_token: str | None = None
+    active_module: str | None = None  # 当前激活的模块（用于命令省略）
 
     # 使用组合而非专用字段
     connection_context: ConnectionContext | None = Field(default=None, exclude=True)
@@ -52,6 +53,22 @@ class GlobalState(BaseModel):
         self.current_port = None
         self.auth_token = None
 
+    def set_active_module(self, module_name: str) -> None:
+        """设置当前激活的模块。
+
+        Args:
+            module_name: 模块名称
+        """
+        self.active_module = module_name
+
+    def get_active_module(self) -> str | None:
+        """获取当前激活的模块。
+
+        Returns:
+            模块名称，如果未设置则返回 None
+        """
+        return self.active_module
+
     def get_connection_info(self) -> dict[str, Any]:
         """获取当前连接信息。"""
         if self.connection_context:
@@ -72,3 +89,4 @@ class GlobalState(BaseModel):
     def reset(self) -> None:
         """重置全局状态。"""
         self.clear_connection_context()
+        self.active_module = None

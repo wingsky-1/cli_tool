@@ -46,8 +46,11 @@ class CommandExecutor:
         if not tokens:
             return
 
-        # 解析命令
-        cmd_info = self._registry.get_command_info(command_str)
+        # 获取当前激活的模块（用于上下文感知）
+        active_module = self._cli_context.state.global_state.get_active_module()
+
+        # 解析命令（支持上下文感知）
+        cmd_info = self._registry.get_command_info(command_str, active_module)
         if cmd_info:
             module_name, command_name, handler = cmd_info
 
