@@ -49,15 +49,24 @@ class PromptToolkitCLI:
         self._style_manager = StyleManager()
         self._prompt_manager: IPromptProvider = PromptManager(self.state)
 
-        self.session: PromptSession[str] = PromptSession(
-            history=FileHistory(str(self.history_path)),
-            style=self._style_manager.create_style(),
-            completer=NestedCompleter.from_nested_dict({}),  # 初始为空
-            enable_history_search=False,  # 禁用历史搜索（与实时补全冲突）
-            complete_while_typing=True,  # 实时补全
-            complete_in_thread=True,  # 在后台线程中补全（避免阻塞）
-            complete_style=CompleteStyle.COLUMN,  # 多列菜单显示（在下方展示候选项）
-        )
+        # 创建 PromptSession（处理终端兼容性问题）
+        try:
+            self.session: PromptSession[str] = PromptSession(
+                history=FileHistory(str(self.history_path)),
+                style=self._style_manager.create_style(),
+                completer=NestedCompleter.from_nested_dict({}),  # 初始为空
+                enable_history_search=False,  # 禁用历史搜索（与实时补全冲突）
+                complete_while_typing=True,  # 实时补全
+                complete_in_thread=True,  # 在后台线程中补全（避免阻塞）
+                complete_style=CompleteStyle.COLUMN,  # 多列菜单显示（在下方展示候选项）
+            )
+        except Exception as e:
+            # 处理终端兼容性问题（如 Git Bash 的 xterm 终端）
+            print(f"警告: 无法初始化完整 PromptSession ({e})")
+            print("提示：如果在 Git Bash 中运行，请尝试使用 cmd.exe 或 PowerShell")
+            print("将使用简化的提示符...\n")
+            # 回退到最小配置
+            self.session = PromptSession(history=FileHistory(str(self.history_path)))
 
         # 初始化自动补全器（传递 state_manager 用于模块上下文感知）
         self.auto_completer = AutoCompleter(self.registry, self.state)  # type: ignore[arg-type]
